@@ -525,6 +525,65 @@
       margin-top: 2px;
     }
 
+    .qa-panel {
+      margin-top: 16px;
+    }
+
+    .qa-toolbar {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 10px;
+      margin-top: 12px;
+    }
+
+    .qa-quick {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 10px;
+    }
+
+    .qa-answer {
+      margin-top: 12px;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      background: #fffdf8;
+      padding: 14px;
+      line-height: 1.7;
+    }
+
+    .qa-answer .title {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--muted);
+      margin-bottom: 8px;
+    }
+
+    .qa-answer .main {
+      font-size: 15px;
+      font-weight: 700;
+      white-space: pre-wrap;
+    }
+
+    .qa-answer .sub {
+      margin-top: 8px;
+      color: var(--muted);
+      font-size: 13px;
+      white-space: pre-wrap;
+    }
+
+    .code-inline {
+      padding: 1px 6px;
+      border-radius: 999px;
+      background: rgba(15, 139, 109, 0.08);
+      border: 1px solid rgba(15, 139, 109, 0.18);
+      font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+      font-size: 12px;
+    }
+
     .footer-note {
       margin-top: 18px;
       color: var(--muted);
@@ -579,6 +638,7 @@
       .chart-canvas { height: 560px; }
       .analysis-chart { height: 420px; }
       .chart-wrap { min-height: 380px; }
+      .qa-toolbar { grid-template-columns: 1fr; }
       .summary-row.head { display: none; }
       .summary-row { grid-template-columns: 1fr; gap: 4px; }
       .summary-row .num { text-align: left; }
@@ -759,6 +819,29 @@
           <div class="analysis-card-title">抽出明細</div>
           <div class="analysis-list" id="analysisDetailList"></div>
         </div>
+      </div>
+    </section>
+
+    <section class="panel qa-panel" id="qaPanel">
+      <div class="panel-head">
+        <h2>家計に聞く</h2>
+        <button class="mini-btn" type="button" id="qaResetBtn">例に戻す</button>
+      </div>
+      <p class="panel-sub">自然文で質問できます。試作版です。例: <span class="code-inline">外食費どう？</span> / <span class="code-inline">今月の予算差額は？</span> / <span class="code-inline">前年比で増えたのは？</span></p>
+      <div class="qa-toolbar">
+        <input id="qaInput" class="control" type="search" placeholder="例: 外食費の予算差額は？" />
+        <button id="qaAskBtn" class="btn secondary" type="button">質問</button>
+      </div>
+      <div class="qa-quick" id="qaQuickRow">
+        <button class="mini-btn" type="button" data-qa="今月どう？">今月どう？</button>
+        <button class="mini-btn" type="button" data-qa="外食費は予算よりどれくらい？">外食費は予算よりどれくらい？</button>
+        <button class="mini-btn" type="button" data-qa="前年差は？">前年差は？</button>
+        <button class="mini-btn" type="button" data-qa="大分類で多いのは？">大分類で多いのは？</button>
+      </div>
+      <div class="qa-answer" id="qaResult">
+        <div class="title">回答</div>
+        <div class="main">ここに答えが出ます。</div>
+        <div class="sub">まずは短い聞き方から試せます。</div>
       </div>
     </section>
 
@@ -1720,6 +1803,168 @@
       }
     }
 
+    function normalizeQuestionText(text) {
+      return String(text || '')
+        .normalize('NFKC')
+        .toLowerCase()
+        .replace(/\s+/g, '')
+        .replace(/[?？!！。、,.，/／\-－_]/g, '');
+    }
+
+    function formatSignedCurrency(n) {
+      const value = Number(n || 0);
+      const sign = value > 0 ? '+' : '';
+      return sign + formatCurrency(value);
+    }
+
+    function findBestQuestionMatch(text, candidates) {
+      const norm = normalizeQuestionText(text);
+      let best = '';
+      let bestScore = 0;
+      (candidates || []).forEach((candidate) => {
+        const name = String(candidate || '').trim();
+        if (!name) return;
+        const n = normalizeQuestionText(name);
+        if (!n || !norm.includes(n)) return;
+        const score = n.length;
+        if (score > bestScore) {
+          bestScore = score;
+          best = name;
+        }
+      });
+      return best;
+    }
+
+    function buildQuestionPayload(query) {
+      const groupBy = $('analysisGroupBy') ? $('analysisGroupBy').value || 'month' : 'month';
+      const payload = {
+        fromMonth: monthToYyyymm($('analysisFrom').value || ''),
+        toMonth: monthToYyyymm($('analysisTo').value || ''),
+        groupBy: groupBy,
+        topN: Number($('analysisTopN') ? $('analysisTopN').value : 10) || 10,
+        query: '',
+        item: '',
+        major: '',
+        payment: ''
+      };
+      const q = normalizeQuestionText(query);
+      const options = (state.analysisData && state.analysisData.options) || {};
+      const itemCandidates = []
+        .concat(options.items || [])
+        .concat((state.summaryRows || []).map((row) => row.name || ''));
+      const majorCandidates = options.majors || [];
+      const paymentCandidates = options.payments || [];
+
+      const item = findBestQuestionMatch(q, itemCandidates);
+      const major = findBestQuestionMatch(q, majorCandidates);
+      const payment = findBestQuestionMatch(q, paymentCandidates);
+
+      if (item) payload.item = item;
+      if (major) payload.major = major;
+      if (payment) payload.payment = payment;
+      return { payload, item, major, payment, q };
+    }
+
+    function renderQuestionAnswer(query, data, parsed) {
+      const box = $('qaResult');
+      if (!box) return;
+      const q = normalizeQuestionText(query);
+      const monthCount = Number(data?.range?.monthCount || 0) || 1;
+      const totals = data?.totals || {};
+      const item = parsed?.item || '';
+      const major = parsed?.major || '';
+      const payment = parsed?.payment || '';
+      const scopeLabel = item || major || payment || 'この範囲';
+      const hasCompare = /(前年差|前年|去年|昨年|比較|比べ)/.test(q);
+      const hasBudget = /(予算|残額|差額|あといくら|余り|オーバー|超過)/.test(q);
+      const wantsTop = /(いちばん|一番|多い|高い|大きい|上位|何が|どれ)/.test(q);
+      const scopeMode = major
+        ? 'major'
+        : payment
+          ? 'payment'
+          : /(大分類|分類)/.test(q)
+            ? 'major'
+            : /(支払|決済|カード|現金)/.test(q)
+              ? 'payment'
+              : item
+                ? 'item'
+                : 'overall';
+      const lines = [];
+      const subLines = [];
+
+      if (scopeMode === 'item') {
+        lines.push(`${scopeLabel}は、月平均実績 ${formatCurrency(totals.average || 0)}、月予算 ${formatCurrency(totals.budgetAverage || 0)} です。`);
+        lines.push(`予算差額（月平均）は ${formatSignedCurrency(totals.budgetGap || 0)}、前年差（月平均）は ${formatSignedCurrency(totals.yoyAverage || 0)} です。`);
+        subLines.push('この答えは、選択中の期間を月平均でまとめたものです。');
+      } else {
+        lines.push(`この範囲では、月平均実績 ${formatCurrency(totals.average || 0)}、月予算 ${formatCurrency(totals.budgetAverage || 0)} です。`);
+        lines.push(`予算差額（月平均）は ${formatSignedCurrency(totals.budgetGap || 0)}、前年差（月平均）は ${formatSignedCurrency(totals.yoyAverage || 0)} です。`);
+        subLines.push('予算も差額も前年差も、いま見ている範囲の月平均で返しています。');
+      }
+
+      if (scopeMode === 'major' || scopeMode === 'payment') {
+        const series = scopeMode === 'major' ? (data?.series?.major || []) : (data?.series?.payment || []);
+        const top = series[0] || null;
+        if (top) {
+          const avg = Math.round(Number(top.amount || 0) / monthCount);
+          lines.unshift(`${scopeLabel}で一番大きいのは ${String(top.label || top.key || '').trim()} です。月平均は ${formatCurrency(avg)}、期間合計は ${formatCurrency(top.amount || 0)} です。`);
+        }
+      } else if (wantsTop) {
+        const top = (data?.series?.item || [])[0] || null;
+        if (top) {
+          const avg = Math.round(Number(top.amount || 0) / monthCount);
+          lines.unshift(`多い項目の候補は ${String(top.label || top.key || '').trim()} です。月平均は ${formatCurrency(avg)}、期間合計は ${formatCurrency(top.amount || 0)} です。`);
+        }
+      }
+
+      if (hasBudget && !item && !major && !payment) {
+        subLines.unshift('予算差額は月平均で見ています。');
+      }
+      if (hasCompare && !item) {
+        subLines.unshift('前年差も月平均で見ています。');
+      }
+
+      box.innerHTML = `
+        <div class="title">回答</div>
+        <div class="main">${escapeHtml(lines.join('\n'))}</div>
+        <div class="sub">${escapeHtml(subLines.join('\n') || '短い聞き方から試せます。')}</div>
+      `;
+    }
+
+    async function askNaturalQuestion() {
+      const input = $('qaInput');
+      const query = String(input ? input.value : '').trim();
+      const box = $('qaResult');
+      if (!box) return;
+      if (!query) {
+        box.innerHTML = `
+          <div class="title">回答</div>
+          <div class="main">質問を入れてください。</div>
+          <div class="sub">例: 外食費どう？ / 今月の予算差額は？ / 前年より増えたのは？</div>
+        `;
+        return;
+      }
+
+      setStatus('自然文を解釈しています。', 'info');
+      appendDebugLog('natural question start: ' + query);
+      try {
+        const parsed = buildQuestionPayload(query);
+        const data = await apiGet('analysis', parsed.payload);
+        renderQuestionAnswer(query, data, parsed);
+        setStatus('', '');
+        appendDebugLog('natural question ok');
+      } catch (err) {
+        console.error(err);
+        box.innerHTML = `
+          <div class="title">回答</div>
+          <div class="main">まだうまく解釈できませんでした。</div>
+          <div class="sub">まずは「外食費どう？」「今月の予算差額は？」「大分類で多いのは？」のような短い聞き方から試せます。</div>
+        `;
+        setStatus(String(err.message || err), 'error');
+        appendDebugLog('natural question error: ' + String(err.message || err));
+      }
+    }
+
     function loadAnalysisView() {
       if (!$('analysisPanel')) return Promise.resolve();
       syncAnalysisDefaults();
@@ -1890,6 +2135,32 @@
       $('analysisMajor').addEventListener('change', () => loadAnalysisView().catch((err) => setStatus(String(err.message || err), 'error')));
       $('analysisPayment').addEventListener('change', () => loadAnalysisView().catch((err) => setStatus(String(err.message || err), 'error')));
       $('analysisQuery').addEventListener('input', () => scheduleAnalysisReload());
+      $('qaAskBtn').addEventListener('click', () => askNaturalQuestion());
+      $('qaResetBtn').addEventListener('click', () => {
+        const input = $('qaInput');
+        if (input) input.value = '';
+        const box = $('qaResult');
+        if (box) {
+          box.innerHTML = `
+            <div class="title">回答</div>
+            <div class="main">ここに答えが出ます。</div>
+            <div class="sub">まずは短い聞き方から試せます。</div>
+          `;
+        }
+        setStatus('', '');
+      });
+      $('qaInput').addEventListener('keydown', (event) => {
+        if (event.key === 'Enter' && !event.shiftKey) {
+          event.preventDefault();
+          askNaturalQuestion();
+        }
+      });
+      $('qaQuickRow').querySelectorAll('[data-qa]').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          $('qaInput').value = btn.dataset.qa || '';
+          askNaturalQuestion();
+        });
+      });
       $('monthInput').addEventListener('change', reloadAll);
       $('amountInput').addEventListener('input', updateAmountPreview);
       $('quickAmountRow').querySelectorAll('[data-amount]').forEach((btn) => {
