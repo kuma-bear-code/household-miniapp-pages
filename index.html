@@ -473,9 +473,6 @@
         <div class="list" id="breakdownList">
           <div class="empty">明細を読み込み中です。</div>
         </div>
-        <div class="actions">
-          <button id="moreBtn" class="btn ghost hidden">もっと見る</button>
-        </div>
       </section>
     </div>
   </div>
@@ -534,7 +531,6 @@
       $('addBtn').disabled = flag;
       $('undoBtn').disabled = flag;
       $('reloadBtn').disabled = flag;
-      $('moreBtn').disabled = flag;
     }
 
     function setDebugField(id, value) {
@@ -725,7 +721,6 @@
         list.innerHTML = html;
       }
 
-      $('moreBtn').classList.toggle('hidden', !state.breakdownHasMore);
     }
 
     function jumpToBreakdownFilter(itemName) {
@@ -775,10 +770,25 @@
       renderSummary(data);
     }
 
-    async function loadBreakdown(append) {
-      const start = append ? state.breakdownStart : 0;
-      const data = await apiGet('breakdown', { month: state.month, start, limit: state.breakdownLimit });
-      renderBreakdown(data, append);
+    async function loadBreakdown() {
+      state.breakdownAllRows = [];
+      state.breakdownStart = 0;
+      state.breakdownHasMore = false;
+
+      let start = 0;
+      const limit = state.breakdownLimit;
+
+      while (true) {
+        const data = await apiGet('breakdown', { month: state.month, start, limit });
+        const incoming = data.rows || [];
+        state.breakdownAllRows = state.breakdownAllRows.concat(incoming);
+        start = Number(data.nextStart || 0);
+        if (!data.hasMore) break;
+        if (incoming.length === 0 || !Number.isFinite(start) || start <= 0) break;
+      }
+
+      populateBreakdownFilter(state.breakdownAllRows);
+      renderBreakdownFromState();
     }
 
     async function loadChart() {
@@ -793,7 +803,7 @@
       try {
         state.month = monthToYyyymm($('monthInput').value);
         $('heroSub').textContent = yyyymmToLabel(state.month) + ' のデータを表示しています。';
-        await Promise.all([loadSummary(), loadBreakdown(false), loadChart()]);
+        await Promise.all([loadSummary(), loadBreakdown(), loadChart()]);
         setStatus('', '');
         appendDebugLog('reloadAll ok');
       } catch (err) {
@@ -930,11 +940,6 @@
       $('breakdownFilter').addEventListener('change', () => {
         renderBreakdownFromState();
       });
-      $('moreBtn').addEventListener('click', () => loadBreakdown(true).catch((err) => {
-        console.error(err);
-        setStatus(String(err.message || err), 'error');
-      }));
-
       boot().catch((err) => {
         console.error(err);
         setStatus(
