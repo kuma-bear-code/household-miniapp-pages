@@ -1374,9 +1374,19 @@
       if (payments.includes(currentPayment)) paymentSelect.value = currentPayment;
     }
 
+    function setInsightLabel(id, text) {
+      const value = $(id);
+      const card = value && value.parentElement;
+      const label = card && card.querySelector('.insight-label');
+      if (label) label.textContent = text;
+    }
+
     function renderAnalysisStats(data) {
       const monthCount = Number(data?.range?.monthCount || 0);
       const count = Number(data?.totals?.count || 0);
+      const selectedItem = $('analysisItem') ? $('analysisItem').value || '' : '';
+      setInsightLabel('analysisBudgetAverage', selectedItem ? `${selectedItem}予算合計` : '予算合計');
+      setInsightLabel('analysisBudgetGap', selectedItem ? `${selectedItem}予算差額` : '予算差額');
       if ($('analysisMonthCount')) $('analysisMonthCount').textContent = String(monthCount || 0);
       if ($('analysisTotal')) $('analysisTotal').textContent = formatCurrency(data?.totals?.amount || 0);
       if ($('analysisMonthAverage')) $('analysisMonthAverage').textContent = formatCurrency(data?.totals?.average || 0);
@@ -1386,8 +1396,8 @@
       if ($('analysisYoYGap')) $('analysisYoYGap').textContent = formatCurrency(data?.totals?.yoyGap || 0);
       if ($('analysisSubtitle')) {
         $('analysisSubtitle').textContent = monthCount
-          ? `${monthCount}か月分を集計しています。月平均・記録平均・予算合計と前年差を並べて見られます。`
-          : '期間を選ぶと、月平均・記録平均・予算合計と前年差を見られます。';
+          ? `${monthCount}か月分を集計しています。${selectedItem ? selectedItem + 'の予算' : '予算'}、月平均・記録平均・前年差を並べて見られます。`
+          : `${selectedItem ? selectedItem + 'の予算' : '予算'}、月平均・記録平均・前年差を見られます。`;
       }
       return count;
     }
