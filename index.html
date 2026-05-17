@@ -430,14 +430,14 @@
       overflow: hidden;
       border: 1px solid var(--line);
       background: #fff;
-      min-height: 240px;
+      min-height: 320px;
       display: grid;
       place-items: center;
     }
 
     .chart-canvas {
       width: 100%;
-      height: 360px;
+      height: 460px;
       display: block;
     }
 
@@ -449,7 +449,7 @@
 
     .analysis-chart {
       width: 100%;
-      height: 300px;
+      height: 360px;
     }
 
     .analysis-list {
@@ -576,9 +576,9 @@
       .hero-top { align-items: flex-start; flex-direction: column; }
       .hero h1 { font-size: 24px; }
       .metric-value { font-size: 24px; }
-      .chart-canvas { height: 440px; }
-      .analysis-chart { height: 340px; }
-      .chart-wrap { min-height: 320px; }
+      .chart-canvas { height: 560px; }
+      .analysis-chart { height: 420px; }
+      .chart-wrap { min-height: 380px; }
       .summary-row.head { display: none; }
       .summary-row { grid-template-columns: 1fr; gap: 4px; }
       .summary-row .num { text-align: left; }
@@ -1271,9 +1271,9 @@
               borderColor: borders,
               borderWidth: 1,
               borderSkipped: false,
-              barPercentage: 0.72,
-              categoryPercentage: 0.7,
-              maxBarThickness: 26
+              barPercentage: 0.62,
+              categoryPercentage: 0.58,
+              maxBarThickness: 20
             }
           ]
         },
@@ -1314,10 +1314,12 @@
               }
             },
             x: {
+              offset: true,
               ticks: {
                 maxRotation: 90,
                 minRotation: 90,
                 autoSkip: false,
+                padding: 8,
                 font: {
                   size: 10
                 }
@@ -1441,19 +1443,19 @@
       const selectedItem = $('analysisItem') ? $('analysisItem').value || '' : '';
       const groupBy = $('analysisGroupBy') ? $('analysisGroupBy').value || 'month' : 'month';
       setInsightVisible('analysisTotal', groupBy !== 'month');
-      setInsightLabel('analysisTotal', groupBy === 'month' ? '実績平均' : '実績合計');
-      setInsightLabel('analysisMonthAverage', groupBy === 'month' ? '月平均' : '月平均');
-      setInsightLabel('analysisBudgetAverage', selectedItem ? `${selectedItem}予算` : '予算');
-      setInsightLabel('analysisBudgetGap', selectedItem ? `${selectedItem}予算差額` : '予算差額');
-      setInsightLabel('analysisRecordAverage', '記録平均');
-      setInsightLabel('analysisYoYGap', '前年差');
+      setInsightLabel('analysisTotal', groupBy === 'month' ? '実績月平均' : '実績合計');
+      setInsightLabel('analysisMonthAverage', '実績月平均');
+      setInsightLabel('analysisBudgetAverage', selectedItem ? `${selectedItem}予算` : '予算月平均');
+      setInsightLabel('analysisBudgetGap', selectedItem ? `${selectedItem}予算差額（月平均）` : '予算差額（月平均）');
+      setInsightLabel('analysisRecordAverage', '記録1件平均');
+      setInsightLabel('analysisYoYGap', '前年差（月平均）');
       if ($('analysisMonthCount')) $('analysisMonthCount').textContent = String(monthCount || 0);
-      if ($('analysisTotal')) $('analysisTotal').textContent = formatCurrency(data?.totals?.amount || 0);
+      if ($('analysisTotal')) $('analysisTotal').textContent = formatCurrency(data?.totals?.average || 0);
       if ($('analysisMonthAverage')) $('analysisMonthAverage').textContent = formatCurrency(data?.totals?.average || 0);
       if ($('analysisRecordAverage')) $('analysisRecordAverage').textContent = formatCurrency(data?.totals?.recordAverage || 0);
       if ($('analysisBudgetAverage')) $('analysisBudgetAverage').textContent = formatCurrency(data?.totals?.budgetAverage || 0);
       if ($('analysisBudgetGap')) $('analysisBudgetGap').textContent = formatCurrency(data?.totals?.budgetGap || 0);
-      if ($('analysisYoYGap')) $('analysisYoYGap').textContent = formatCurrency(data?.totals?.yoyGap || 0);
+      if ($('analysisYoYGap')) $('analysisYoYGap').textContent = formatCurrency(data?.totals?.yoyAverage || 0);
       if ($('analysisSubtitle')) {
         $('analysisSubtitle').textContent = monthCount
           ? `${monthCount}か月分を集計しています。${selectedItem ? selectedItem + 'の予算' : '予算'}、月平均・記録平均・前年差を並べて見られます。`
