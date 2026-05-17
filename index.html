@@ -112,6 +112,26 @@
       word-break: break-word;
     }
 
+    .quick-nav {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 10px;
+      margin-top: 14px;
+    }
+
+    .nav-btn {
+      min-height: 42px;
+      border: 1px solid rgba(255, 255, 255, 0.22);
+      background: rgba(255, 255, 255, 0.16);
+      color: #fff;
+      border-radius: 14px;
+      font-weight: 700;
+      cursor: pointer;
+      backdrop-filter: blur(10px);
+    }
+
+    .nav-btn:active { transform: translateY(1px); }
+
     .grid {
       display: grid;
       grid-template-columns: 1.1fr 0.9fr;
@@ -188,11 +208,85 @@
       color: var(--muted);
     }
 
+    .quick-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 8px;
+    }
+
+    .mini-btn {
+      min-height: 34px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      background: rgba(255, 250, 242, 0.9);
+      color: var(--ink);
+      padding: 0 12px;
+      font-size: 13px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+
+    .mini-btn:active { transform: translateY(1px); }
+
+    .amount-preview {
+      margin-top: 6px;
+      color: var(--muted);
+      font-size: 12px;
+      min-height: 18px;
+    }
+
     .actions {
       display: flex;
       gap: 10px;
       flex-wrap: wrap;
       margin-top: 16px;
+    }
+
+    .panel-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    .toolbar {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(130px, 0.4fr);
+      gap: 10px;
+      margin-top: 14px;
+    }
+
+    .toolbar.compact {
+      grid-template-columns: minmax(0, 1fr) minmax(130px, 0.35fr);
+    }
+
+    .insight-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 10px;
+      margin-top: 14px;
+    }
+
+    .insight {
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      background: rgba(255, 250, 242, 0.82);
+      padding: 12px;
+    }
+
+    .insight-label {
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    .insight-value {
+      margin-top: 6px;
+      font-size: 18px;
+      font-weight: 800;
+      font-variant-numeric: tabular-nums;
     }
 
     .status {
@@ -217,7 +311,7 @@
 
     .summary-row {
       display: grid;
-      grid-template-columns: minmax(0, 1.5fr) repeat(3, minmax(72px, 1fr));
+      grid-template-columns: minmax(0, 1.5fr) repeat(3, minmax(72px, 1fr)) 26px;
       gap: 10px;
       align-items: center;
       border: 1px solid var(--line);
@@ -273,6 +367,24 @@
     .summary-row .name { font-weight: 700; line-height: 1.3; }
     .summary-row .num { text-align: right; font-variant-numeric: tabular-nums; }
     .summary-row .remain.neg { color: var(--danger); }
+
+    .progress-track {
+      grid-column: 1 / -1;
+      height: 7px;
+      border-radius: 999px;
+      background: #eee1cf;
+      overflow: hidden;
+    }
+
+    .progress-fill {
+      height: 100%;
+      width: 0%;
+      border-radius: inherit;
+      background: var(--accent);
+    }
+
+    .progress-fill.warn { background: #d98c30; }
+    .progress-fill.danger { background: var(--danger); }
 
     .entry {
       display: grid;
@@ -360,9 +472,13 @@
 
     @media (max-width: 860px) {
       .metrics { grid-template-columns: 1fr; }
+      .quick-nav { grid-template-columns: 1fr; }
       .grid { grid-template-columns: 1fr; }
       .form-grid { grid-template-columns: 1fr; }
       .summary-row { grid-template-columns: minmax(0, 1.4fr) repeat(3, minmax(64px, 1fr)); }
+      .toolbar,
+      .toolbar.compact,
+      .insight-grid { grid-template-columns: 1fr; }
     }
 
     @media (max-width: 560px) {
@@ -407,10 +523,15 @@
           <div class="metric-value" id="metricSpent">-</div>
         </div>
       </div>
+      <div class="quick-nav">
+        <button class="nav-btn" type="button" data-scroll-target="inputPanel">入力</button>
+        <button class="nav-btn" type="button" data-scroll-target="summaryPanel">サマリー</button>
+        <button class="nav-btn" type="button" data-scroll-target="breakdownPanel">明細</button>
+      </div>
     </section>
 
     <div class="grid">
-      <section class="panel">
+      <section class="panel" id="inputPanel">
         <h2>入力</h2>
         <p class="panel-sub">項目、金額、備考を入れて登録します。</p>
 
@@ -422,10 +543,19 @@
           <div class="field">
             <label for="amountInput">金額</label>
             <input id="amountInput" class="control" type="number" inputmode="numeric" placeholder="1200" />
+            <div class="quick-row" id="quickAmountRow">
+              <button class="mini-btn" type="button" data-amount="500">500</button>
+              <button class="mini-btn" type="button" data-amount="1000">1,000</button>
+              <button class="mini-btn" type="button" data-amount="2000">2,000</button>
+              <button class="mini-btn" type="button" data-amount="5000">5,000</button>
+              <button class="mini-btn" type="button" data-amount="10000">10,000</button>
+            </div>
+            <div class="amount-preview" id="amountPreview"></div>
           </div>
           <div class="field full">
             <label for="itemSelect">項目</label>
             <select id="itemSelect" class="control"></select>
+            <div class="quick-row" id="recentItemRow"></div>
           </div>
           <div class="field">
             <label for="memo1Select">備考1</label>
@@ -453,8 +583,25 @@
       </section>
 
       <section class="panel">
-        <h2>全体グラフ</h2>
+        <div class="panel-head">
+          <h2>全体グラフ</h2>
+          <button class="mini-btn" type="button" id="chartReloadBtn">更新</button>
+        </div>
         <p class="panel-sub">今月の残額チャートです。</p>
+        <div class="insight-grid">
+          <div class="insight">
+            <div class="insight-label">予算消化率</div>
+            <div class="insight-value" id="insightRate">-</div>
+          </div>
+          <div class="insight">
+            <div class="insight-label">黒字項目</div>
+            <div class="insight-value" id="insightPositive">-</div>
+          </div>
+          <div class="insight">
+            <div class="insight-label">赤字項目</div>
+            <div class="insight-value" id="insightNegative">-</div>
+          </div>
+        </div>
         <div class="chart-wrap" id="chartWrap">
           <div class="empty" id="chartEmpty">グラフを読み込み中です。</div>
           <img id="chartImage" class="hidden" alt="全体グラフ" />
@@ -464,20 +611,40 @@
 
     <div class="grid">
       <section class="panel" id="summaryPanel">
-        <h2>項目別サマリー</h2>
+        <div class="panel-head">
+          <h2>項目別サマリー</h2>
+          <button class="mini-btn" type="button" id="showDeficitBtn">赤字だけ</button>
+        </div>
+        <div class="toolbar">
+          <input id="summarySearch" class="control" type="search" placeholder="項目を検索" />
+          <select id="summarySort" class="control">
+            <option value="default">標準</option>
+            <option value="remainAsc">残額が少ない順</option>
+            <option value="spendDesc">支出が多い順</option>
+            <option value="rateDesc">消化率が高い順</option>
+          </select>
+        </div>
         <div class="summary-list" id="summaryList">
           <div class="empty">サマリーを読み込み中です。</div>
         </div>
       </section>
 
       <section class="panel" id="breakdownPanel">
-        <div style="display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap;">
+        <div class="panel-head">
           <h2 style="margin:0;">最近の明細</h2>
           <select id="breakdownFilter" class="control" style="width:auto; min-width:180px;">
             <option value="">未選択</option>
           </select>
         </div>
         <p class="panel-sub">項目を選ぶとその明細だけ表示します。未選択なら全部表示します。</p>
+        <div class="toolbar compact">
+          <input id="breakdownSearch" class="control" type="search" placeholder="明細を検索" />
+          <select id="breakdownSort" class="control">
+            <option value="newest">新しい順</option>
+            <option value="amountDesc">金額が大きい順</option>
+            <option value="amountAsc">金額が小さい順</option>
+          </select>
+        </div>
         <div class="list" id="breakdownList">
           <div class="empty">明細を読み込み中です。</div>
         </div>
@@ -499,6 +666,8 @@
       breakdownLimit: 20,
       breakdownHasMore: false,
       breakdownAllRows: [],
+      summaryRows: [],
+      summaryDeficitOnly: false,
       loading: false
     };
 
@@ -546,6 +715,50 @@
       const stamp = new Date().toLocaleTimeString('ja-JP', { hour12: false });
       el.textContent += '\n[' + stamp + '] ' + message;
       el.scrollTop = el.scrollHeight;
+    }
+
+    function scrollToPanel(id) {
+      const el = $(id);
+      if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+
+    function getRecentItems() {
+      try {
+        return JSON.parse(localStorage.getItem('recentItems') || '[]').filter(Boolean);
+      } catch (e) {
+        return [];
+      }
+    }
+
+    function saveRecentItem(item) {
+      const next = [item].concat(getRecentItems().filter((name) => name !== item)).slice(0, 6);
+      localStorage.setItem('recentItems', JSON.stringify(next));
+      renderRecentItems();
+    }
+
+    function renderRecentItems() {
+      const row = $('recentItemRow');
+      if (!row) return;
+      const items = getRecentItems();
+      row.innerHTML = items.map((item) =>
+        '<button class="mini-btn" type="button" data-recent-item="' + escapeHtml(item) + '">' + escapeHtml(item) + '</button>'
+      ).join('');
+      row.querySelectorAll('[data-recent-item]').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          $('itemSelect').value = btn.dataset.recentItem || '';
+        });
+      });
+    }
+
+    function updateAmountPreview() {
+      const amount = Number($('amountInput').value || 0);
+      $('amountPreview').textContent = amount > 0 ? '入力額: ' + formatCurrency(amount) : '';
+    }
+
+    function getBudgetRate(row) {
+      const budget = Number(row.budget || 0);
+      if (budget <= 0) return 0;
+      return Math.max(0, Math.round((Number(row.spend || 0) / budget) * 100));
     }
 
     function initLiffWithTimeout(timeoutMs) {
@@ -630,6 +843,7 @@
         const label = item || '未選択';
         return '<option value="' + escapeHtml(item) + '">' + escapeHtml(label) + '</option>';
       }).join('');
+      renderRecentItems();
     }
 
     function renderSummary(summary) {
@@ -640,9 +854,44 @@
       }
 
       const totalSpent = summary.rows.reduce((acc, row) => acc + Number(row.spend || 0), 0);
+      const totalBudget = summary.rows.reduce((acc, row) => acc + Number(row.budget || 0), 0);
+      const positiveCount = summary.rows.filter((row) => Number(row.remain || 0) >= 0).length;
+      const negativeCount = summary.rows.filter((row) => Number(row.remain || 0) < 0).length;
       $('metricOverall').textContent = formatCurrency(summary.overall);
       $('metricSpent').textContent = formatCurrency(totalSpent);
       $('metricMonth').textContent = yyyymmToLabel(state.month);
+      $('insightRate').textContent = totalBudget > 0 ? Math.round((totalSpent / totalBudget) * 100) + '%' : '-';
+      $('insightPositive').textContent = positiveCount + '件';
+      $('insightNegative').textContent = negativeCount + '件';
+      state.summaryRows = summary.rows.slice();
+      renderSummaryRows();
+    }
+
+    function renderSummaryRows() {
+      const list = $('summaryList');
+      const search = ($('summarySearch').value || '').trim();
+      const sort = $('summarySort').value || 'default';
+      let rowsForView = state.summaryRows.slice();
+
+      if (search) {
+        rowsForView = rowsForView.filter((row) => String(row.name || '').includes(search));
+      }
+      if (state.summaryDeficitOnly) {
+        rowsForView = rowsForView.filter((row) => Number(row.remain || 0) < 0);
+      }
+
+      if (sort === 'remainAsc') {
+        rowsForView.sort((a, b) => Number(a.remain || 0) - Number(b.remain || 0));
+      } else if (sort === 'spendDesc') {
+        rowsForView.sort((a, b) => Number(b.spend || 0) - Number(a.spend || 0));
+      } else if (sort === 'rateDesc') {
+        rowsForView.sort((a, b) => getBudgetRate(b) - getBudgetRate(a));
+      }
+
+      if (!rowsForView.length) {
+        list.innerHTML = '<div class="empty">条件に合うサマリーがありません。</div>';
+        return;
+      }
 
       const head = `
         <div class="summary-row head">
@@ -650,17 +899,21 @@
           <div class="num">予算</div>
           <div class="num">支出</div>
           <div class="num">残額</div>
+          <div></div>
         </div>
       `;
 
-      const rows = summary.rows.map((row) => {
+      const rows = rowsForView.map((row) => {
         const remainClass = Number(row.remain) < 0 ? 'remain neg' : 'remain';
+        const rate = getBudgetRate(row);
+        const progressClass = rate >= 100 ? 'danger' : rate >= 80 ? 'warn' : '';
         return `
           <button class="summary-row summary-clickable" type="button" data-item="${escapeHtml(row.name)}">
             <div class="name">${escapeHtml(row.name)}</div>
             <div class="num">予算: ${formatCurrency(row.budget)}</div>
             <div class="num">現在: ${formatCurrency(row.spend)}</div>
             <div class="num ${remainClass}">残額: ${formatCurrency(row.remain)}</div>
+            <div class="progress-track"><div class="progress-fill ${progressClass}" style="width:${Math.min(rate, 100)}%;"></div></div>
           </button>
         `;
       }).join('');
@@ -684,8 +937,21 @@
 
     function getFilteredBreakdownRows(rows) {
       const filter = $('breakdownFilter').value || '';
-      if (!filter) return rows;
-      return rows.filter((row) => String(row.item || '') === filter);
+      const search = ($('breakdownSearch').value || '').trim();
+      const sort = $('breakdownSort').value || 'newest';
+      let result = rows.slice();
+      if (filter) result = result.filter((row) => String(row.item || '') === filter);
+      if (search) {
+        result = result.filter((row) =>
+          [row.date, row.item, row.memo1, row.memo2, row.amount].some((value) => String(value || '').includes(search))
+        );
+      }
+      if (sort === 'amountDesc') {
+        result.sort((a, b) => Number(b.amount || 0) - Number(a.amount || 0));
+      } else if (sort === 'amountAsc') {
+        result.sort((a, b) => Number(a.amount || 0) - Number(b.amount || 0));
+      }
+      return result;
     }
 
     function renderBreakdownFromState() {
@@ -831,6 +1097,8 @@
         $('memo2Input').value = '';
         setStatus('登録しました。', 'ok');
         appendDebugLog('add ok');
+        saveRecentItem(item);
+        updateAmountPreview();
         await reloadAll();
       } catch (err) {
         setStatus(String(err.message || err), 'error');
@@ -914,10 +1182,31 @@
       $('addBtn').addEventListener('click', addEntry);
       $('undoBtn').addEventListener('click', undoEntry);
       $('reloadBtn').addEventListener('click', reloadAll);
+      $('chartReloadBtn').addEventListener('click', () => loadChart().catch((err) => setStatus(String(err.message || err), 'error')));
       $('monthInput').addEventListener('change', reloadAll);
+      $('amountInput').addEventListener('input', updateAmountPreview);
+      $('quickAmountRow').querySelectorAll('[data-amount]').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          $('amountInput').value = btn.dataset.amount || '';
+          updateAmountPreview();
+          $('amountInput').focus();
+        });
+      });
+      document.querySelectorAll('[data-scroll-target]').forEach((btn) => {
+        btn.addEventListener('click', () => scrollToPanel(btn.dataset.scrollTarget || ''));
+      });
+      $('summarySearch').addEventListener('input', renderSummaryRows);
+      $('summarySort').addEventListener('change', renderSummaryRows);
+      $('showDeficitBtn').addEventListener('click', () => {
+        state.summaryDeficitOnly = !state.summaryDeficitOnly;
+        $('showDeficitBtn').textContent = state.summaryDeficitOnly ? '全件表示' : '赤字だけ';
+        renderSummaryRows();
+      });
       $('breakdownFilter').addEventListener('change', () => {
         renderBreakdownFromState();
       });
+      $('breakdownSearch').addEventListener('input', renderBreakdownFromState);
+      $('breakdownSort').addEventListener('change', renderBreakdownFromState);
       boot().catch((err) => {
         console.error(err);
         setStatus(
