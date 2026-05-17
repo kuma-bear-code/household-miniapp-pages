@@ -346,24 +346,8 @@
       color: var(--muted);
     }
 
-    .debug-grid {
-      display: grid;
-      grid-template-columns: 108px 1fr;
-      gap: 6px 10px;
-      font-size: 12px;
-      line-height: 1.45;
-      word-break: break-word;
-    }
-
-    .debug-key {
-      color: var(--muted);
-      font-weight: 700;
-    }
-
     .debug-log {
       margin-top: 10px;
-      padding-top: 10px;
-      border-top: 1px solid var(--line);
       font-size: 12px;
       line-height: 1.5;
       white-space: pre-wrap;
@@ -463,19 +447,7 @@
         <div class="footer-note" id="whoamiLine">ユーザー確認前です。</div>
 
         <div class="debug-panel">
-          <p class="debug-title">接続デバッグ</p>
-          <div class="debug-grid">
-            <div class="debug-key">LIFF_ID</div>
-            <div id="debugLiffId">-</div>
-            <div class="debug-key">Endpoint</div>
-            <div id="debugUrl">-</div>
-            <div class="debug-key">In Client</div>
-            <div id="debugClient">-</div>
-            <div class="debug-key">Logged In</div>
-            <div id="debugLoggedIn">-</div>
-            <div class="debug-key">Step</div>
-            <div id="debugStep">-</div>
-          </div>
+          <p class="debug-title">履歴</p>
           <div id="debugLog" class="debug-log">初期化前</div>
         </div>
       </section>
@@ -569,28 +541,11 @@
       $('reloadBtn').disabled = flag;
     }
 
-    function setDebugField(id, value) {
-      $(id).textContent = value == null || value === '' ? '-' : String(value);
-    }
-
-    function setDebugStep(step) {
-      setDebugField('debugStep', step);
-    }
-
     function appendDebugLog(message) {
       const el = $('debugLog');
       const stamp = new Date().toLocaleTimeString('ja-JP', { hour12: false });
       el.textContent += '\n[' + stamp + '] ' + message;
       el.scrollTop = el.scrollHeight;
-    }
-
-    function initDebugInfo() {
-      setDebugField('debugLiffId', LIFF_ID || '(empty)');
-      setDebugField('debugUrl', location.href);
-      setDebugField('debugClient', / Line\//i.test(navigator.userAgent) ? 'ua:LINE' : 'ua:other');
-      setDebugField('debugLoggedIn', '-');
-      setDebugStep('boot start');
-      $('debugLog').textContent = '初期化開始';
     }
 
     function initLiffWithTimeout(timeoutMs) {
@@ -896,56 +851,46 @@
         if (res.ok) await reloadAll();
       } catch (err) {
         setStatus(String(err.message || err), 'error');
-        appendDebugLog('undo error: ' + String(err.message || err));
+      appendDebugLog('undo error: ' + String(err.message || err));
       } finally {
         setLoading(false);
       }
     }
 
     async function boot() {
-      initDebugInfo();
+      $('debugLog').textContent = '初期化開始';
       $('monthInput').value = currentMonthInput();
       state.month = monthToYyyymm($('monthInput').value);
 
       if (!LIFF_ID || LIFF_ID.indexOf('REPLACE_') === 0) {
-        setDebugStep('missing LIFF_ID');
         throw new Error('LIFF_ID を index.html に設定してください。');
       }
       if (!API_BASE_URL || API_BASE_URL.indexOf('REPLACE_') === 0) {
-        setDebugStep('missing API_BASE_URL');
         throw new Error('API_BASE_URL を index.html に設定してください。');
       }
 
-      setDebugStep('liff.init start');
       appendDebugLog('liff.init start');
       setStatus('LIFFを初期化しています。', 'info');
       await initLiffWithTimeout(10000);
       appendDebugLog('liff.init ok');
-      setDebugStep('liff.init ok');
 
       $('loginChip').textContent = liff.isInClient() ? 'LINEアプリ内' : '外部ブラウザ';
-      setDebugField('debugClient', liff.isInClient() ? 'true' : 'false');
-      setDebugField('debugLoggedIn', liff.isLoggedIn() ? 'true' : 'false');
 
       if (!liff.isLoggedIn()) {
-        setDebugStep('redirect login');
         appendDebugLog('not logged in; redirect to LINE login');
         setStatus('LINEログインに移動します。', 'info');
         liff.login({ redirectUri: location.href });
         return;
       }
 
-      setDebugStep('get access token');
       appendDebugLog('get access token');
       state.accessToken = liff.getAccessToken();
       appendDebugLog('token ok: ' + (state.accessToken ? 'received' : 'empty'));
 
-      setDebugStep('get profile');
       appendDebugLog('get profile');
       const profile = await liff.getProfile();
       appendDebugLog('profile ok: ' + profile.displayName);
 
-      setDebugStep('whoami api');
       appendDebugLog('whoami api');
       const whoami = await apiGet('whoami');
       state.userId = whoami.userId;
@@ -955,16 +900,13 @@
       $('heroSub').textContent = profile.displayName + ' さんの家計簿を読み込みました。';
       setStatus('', '');
 
-      setDebugStep('items api');
       appendDebugLog('items api');
       const itemData = await apiGet('items');
       renderItems(itemData.items || [], itemData.memo1Options || []);
       appendDebugLog('items ok');
 
-      setDebugStep('initial load');
       appendDebugLog('initial load');
       await reloadAll();
-      setDebugStep('ready');
       appendDebugLog('ready');
     }
 
