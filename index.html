@@ -1,0 +1,909 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8" />
+  <title>家計簿 ミニアプリ</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+  <style>
+    :root {
+      --bg: #f7f3ea;
+      --panel: rgba(255, 255, 255, 0.92);
+      --panel-strong: #fffaf2;
+      --ink: #1f1a16;
+      --muted: #6e6258;
+      --line: #dfd2bf;
+      --accent: #0f8b6d;
+      --danger: #c0392b;
+      --shadow: 0 18px 42px rgba(78, 55, 28, 0.12);
+      --radius: 18px;
+    }
+
+    * { box-sizing: border-box; }
+    html, body { margin: 0; padding: 0; }
+    body {
+      font-family: "Hiragino Sans", "Yu Gothic", sans-serif;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at top left, rgba(242, 143, 59, 0.18), transparent 28%),
+        radial-gradient(circle at top right, rgba(15, 139, 109, 0.16), transparent 24%),
+        linear-gradient(180deg, #faf5ec 0%, #f3ede2 100%);
+      min-height: 100vh;
+    }
+
+    .app {
+      width: min(980px, calc(100vw - 24px));
+      margin: 0 auto;
+      padding: 18px 0 28px;
+    }
+
+    .hero {
+      background: linear-gradient(135deg, rgba(15, 139, 109, 0.92), rgba(242, 143, 59, 0.86));
+      color: #fff;
+      border-radius: 24px;
+      padding: 22px 20px;
+      box-shadow: var(--shadow);
+    }
+
+    .hero-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 14px;
+    }
+
+    .hero h1 {
+      margin: 0;
+      font-size: 28px;
+      line-height: 1.1;
+    }
+
+    .hero p {
+      margin: 4px 0 0;
+      color: rgba(255, 255, 255, 0.88);
+      font-size: 14px;
+    }
+
+    .chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      border-radius: 999px;
+      padding: 8px 12px;
+      background: rgba(255, 255, 255, 0.18);
+      font-size: 12px;
+      backdrop-filter: blur(10px);
+    }
+
+    .metrics {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 12px;
+    }
+
+    .metric {
+      background: rgba(255, 255, 255, 0.18);
+      border: 1px solid rgba(255, 255, 255, 0.18);
+      border-radius: 18px;
+      padding: 14px;
+      min-height: 98px;
+      backdrop-filter: blur(10px);
+    }
+
+    .metric-label {
+      font-size: 12px;
+      color: rgba(255, 255, 255, 0.82);
+    }
+
+    .metric-value {
+      margin-top: 8px;
+      font-size: 28px;
+      font-weight: 700;
+      line-height: 1.1;
+      word-break: break-word;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: 1.1fr 0.9fr;
+      gap: 16px;
+      margin-top: 16px;
+    }
+
+    .panel {
+      background: var(--panel);
+      border: 1px solid rgba(255, 255, 255, 0.7);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding: 18px;
+    }
+
+    .panel h2 {
+      margin: 0;
+      font-size: 18px;
+    }
+
+    .panel-sub {
+      margin: 6px 0 0;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .control, .btn {
+      appearance: none;
+      border: 0;
+      outline: 0;
+      border-radius: 14px;
+      min-height: 46px;
+      font-size: 15px;
+    }
+
+    .control {
+      width: 100%;
+      padding: 0 14px;
+      background: var(--panel-strong);
+      border: 1px solid var(--line);
+      color: var(--ink);
+    }
+
+    .btn {
+      padding: 0 16px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+
+    .btn:disabled { opacity: 0.5; cursor: wait; }
+    .btn.primary { background: var(--accent); color: #fff; }
+    .btn.secondary { background: #ebe2d3; color: #34281f; }
+    .btn.ghost { background: transparent; border: 1px solid var(--line); color: var(--ink); }
+    .btn.warn { background: #f9e0dd; color: var(--danger); }
+
+    .form-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+      margin-top: 16px;
+    }
+
+    .field {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .field.full { grid-column: 1 / -1; }
+
+    label {
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--muted);
+    }
+
+    .actions {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin-top: 16px;
+    }
+
+    .status {
+      margin-top: 14px;
+      padding: 12px 14px;
+      border-radius: 14px;
+      font-size: 14px;
+      white-space: pre-wrap;
+      display: none;
+    }
+
+    .status.show { display: block; }
+    .status.ok { background: #e4f4ef; color: #105c48; }
+    .status.error { background: #f9e0dd; color: #8d2419; }
+    .status.info { background: #efe7d8; color: #6a4f26; }
+
+    .summary-list, .list {
+      display: grid;
+      gap: 10px;
+      margin-top: 16px;
+    }
+
+    .summary-row {
+      display: grid;
+      grid-template-columns: minmax(0, 1.5fr) repeat(3, minmax(72px, 1fr));
+      gap: 10px;
+      align-items: center;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      padding: 12px 14px;
+      background: rgba(255, 250, 242, 0.9);
+    }
+
+    .summary-row.head {
+      background: transparent;
+      border: 0;
+      padding: 0 4px;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    .summary-row .name { font-weight: 700; line-height: 1.3; }
+    .summary-row .num { text-align: right; font-variant-numeric: tabular-nums; }
+    .summary-row .remain.neg { color: var(--danger); }
+
+    .entry {
+      display: grid;
+      grid-template-columns: 68px minmax(0, 1fr) 92px;
+      gap: 10px;
+      align-items: start;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      padding: 12px 14px;
+      background: rgba(255, 255, 255, 0.8);
+    }
+
+    .entry-item { font-weight: 700; line-height: 1.35; word-break: break-word; }
+    .entry-meta { margin-top: 4px; color: var(--muted); font-size: 12px; line-height: 1.35; }
+    .entry-amount { text-align: right; font-weight: 700; font-variant-numeric: tabular-nums; }
+
+    .empty {
+      border: 1px dashed var(--line);
+      border-radius: 14px;
+      padding: 18px;
+      text-align: center;
+      color: var(--muted);
+      background: rgba(255, 255, 255, 0.55);
+    }
+
+    .chart-wrap {
+      margin-top: 16px;
+      border-radius: 18px;
+      overflow: hidden;
+      border: 1px solid var(--line);
+      background: #fff;
+      min-height: 180px;
+      display: grid;
+      place-items: center;
+    }
+
+    .chart-wrap img { width: 100%; display: block; }
+
+    .footer-note {
+      margin-top: 18px;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.5;
+    }
+
+    .debug-panel {
+      margin-top: 16px;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      background: rgba(255, 250, 242, 0.78);
+      padding: 12px 14px;
+    }
+
+    .debug-title {
+      margin: 0 0 8px;
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--muted);
+    }
+
+    .debug-grid {
+      display: grid;
+      grid-template-columns: 108px 1fr;
+      gap: 6px 10px;
+      font-size: 12px;
+      line-height: 1.45;
+      word-break: break-word;
+    }
+
+    .debug-key {
+      color: var(--muted);
+      font-weight: 700;
+    }
+
+    .debug-log {
+      margin-top: 10px;
+      padding-top: 10px;
+      border-top: 1px solid var(--line);
+      font-size: 12px;
+      line-height: 1.5;
+      white-space: pre-wrap;
+      color: #4b4036;
+      max-height: 180px;
+      overflow: auto;
+    }
+
+    .hidden { display: none !important; }
+
+    @media (max-width: 860px) {
+      .metrics { grid-template-columns: 1fr; }
+      .grid { grid-template-columns: 1fr; }
+      .form-grid { grid-template-columns: 1fr; }
+      .summary-row { grid-template-columns: minmax(0, 1.4fr) repeat(3, minmax(64px, 1fr)); }
+    }
+
+    @media (max-width: 560px) {
+      .app { width: calc(100vw - 16px); padding-top: 8px; }
+      .hero { border-radius: 20px; padding: 18px 16px; }
+      .hero-top { align-items: flex-start; flex-direction: column; }
+      .hero h1 { font-size: 24px; }
+      .metric-value { font-size: 24px; }
+      .summary-row.head { display: none; }
+      .summary-row { grid-template-columns: 1fr; gap: 4px; }
+      .summary-row .num { text-align: left; }
+      .entry { grid-template-columns: 56px minmax(0, 1fr) 84px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <section class="hero">
+      <div class="hero-top">
+        <div>
+          <h1>家計簿 ミニアプリ</h1>
+          <p id="heroSub">LINEログインを確認してデータを読み込みます。</p>
+        </div>
+        <div class="chip" id="loginChip">LIFF接続中</div>
+      </div>
+      <div class="metrics">
+        <div class="metric">
+          <div class="metric-label">対象月</div>
+          <div class="metric-value" id="metricMonth">-</div>
+        </div>
+        <div class="metric">
+          <div class="metric-label">全体の残額</div>
+          <div class="metric-value" id="metricOverall">-</div>
+        </div>
+        <div class="metric">
+          <div class="metric-label">今月の支出合計</div>
+          <div class="metric-value" id="metricSpent">-</div>
+        </div>
+      </div>
+    </section>
+
+    <div class="grid">
+      <section class="panel">
+        <h2>入力</h2>
+        <p class="panel-sub">項目、金額、備考を入れて登録します。</p>
+
+        <div class="form-grid">
+          <div class="field">
+            <label for="monthInput">月</label>
+            <input id="monthInput" class="control" type="month" />
+          </div>
+          <div class="field">
+            <label for="amountInput">金額</label>
+            <input id="amountInput" class="control" type="number" inputmode="numeric" placeholder="1200" />
+          </div>
+          <div class="field full">
+            <label for="itemSelect">項目</label>
+            <select id="itemSelect" class="control"></select>
+          </div>
+          <div class="field">
+            <label for="memo1Select">備考1</label>
+            <select id="memo1Select" class="control"></select>
+          </div>
+          <div class="field">
+            <label for="memo2Input">備考2</label>
+            <input id="memo2Input" class="control" type="text" maxlength="80" placeholder="スーパー、用途など" />
+          </div>
+        </div>
+
+        <div class="actions">
+          <button id="addBtn" class="btn primary">登録</button>
+          <button id="undoBtn" class="btn warn">直前を取り消す</button>
+          <button id="reloadBtn" class="btn secondary">再読み込み</button>
+        </div>
+
+        <div id="statusBox" class="status"></div>
+        <div class="footer-note" id="whoamiLine">ユーザー確認前です。</div>
+
+        <div class="debug-panel">
+          <p class="debug-title">接続デバッグ</p>
+          <div class="debug-grid">
+            <div class="debug-key">LIFF_ID</div>
+            <div id="debugLiffId">-</div>
+            <div class="debug-key">Endpoint</div>
+            <div id="debugUrl">-</div>
+            <div class="debug-key">In Client</div>
+            <div id="debugClient">-</div>
+            <div class="debug-key">Logged In</div>
+            <div id="debugLoggedIn">-</div>
+            <div class="debug-key">Step</div>
+            <div id="debugStep">-</div>
+          </div>
+          <div id="debugLog" class="debug-log">初期化前</div>
+        </div>
+      </section>
+
+      <section class="panel">
+        <h2>全体グラフ</h2>
+        <p class="panel-sub">今月の残額チャートです。</p>
+        <div class="chart-wrap" id="chartWrap">
+          <div class="empty" id="chartEmpty">グラフを読み込み中です。</div>
+          <img id="chartImage" class="hidden" alt="全体グラフ" />
+        </div>
+      </section>
+    </div>
+
+    <div class="grid">
+      <section class="panel">
+        <h2>項目別サマリー</h2>
+        <div class="summary-list" id="summaryList">
+          <div class="empty">サマリーを読み込み中です。</div>
+        </div>
+      </section>
+
+      <section class="panel">
+        <div style="display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap;">
+          <h2 style="margin:0;">最近の明細</h2>
+          <select id="breakdownFilter" class="control" style="width:auto; min-width:180px;">
+            <option value="">未選択</option>
+          </select>
+        </div>
+        <p class="panel-sub">項目を選ぶとその明細だけ表示します。未選択なら全部表示します。</p>
+        <div class="list" id="breakdownList">
+          <div class="empty">明細を読み込み中です。</div>
+        </div>
+        <div class="actions">
+          <button id="moreBtn" class="btn ghost hidden">もっと見る</button>
+        </div>
+      </section>
+    </div>
+  </div>
+
+  <iframe id="postTarget" name="postTarget" class="hidden" title="postTarget"></iframe>
+
+  <script>
+    const LIFF_ID = '2008812269-var864Dv';
+    const API_BASE_URL = 'https://script.google.com/macros/s/AKfycbybumOZE5YTic3zBnF3KW93UlSetzHTEben4_UtwugKMMagqcH9aJYIzsW10kd5hIwe/exec';
+
+    const state = {
+      accessToken: '',
+      userId: '',
+      month: '',
+      breakdownStart: 0,
+      breakdownLimit: 20,
+      breakdownHasMore: false,
+      breakdownAllRows: [],
+      loading: false
+    };
+
+    const $ = (id) => document.getElementById(id);
+
+    function formatCurrency(n) {
+      return Number(n || 0).toLocaleString('ja-JP') + '円';
+    }
+
+    function monthToYyyymm(monthValue) {
+      return String(monthValue || '').replace('-', '');
+    }
+
+    function yyyymmToLabel(yyyymm) {
+      return yyyymm ? yyyymm.slice(0, 4) + '/' + yyyymm.slice(4) : '-';
+    }
+
+    function currentMonthInput() {
+      const d = new Date();
+      const y = d.getFullYear();
+      const m = String(d.getMonth() + 1).padStart(2, '0');
+      return y + '-' + m;
+    }
+
+    function setStatus(message, type) {
+      const box = $('statusBox');
+      if (!message) {
+        box.className = 'status';
+        box.textContent = '';
+        return;
+      }
+      box.textContent = message;
+      box.className = 'status show ' + (type || 'info');
+    }
+
+    function setLoading(flag) {
+      state.loading = flag;
+      $('addBtn').disabled = flag;
+      $('undoBtn').disabled = flag;
+      $('reloadBtn').disabled = flag;
+      $('moreBtn').disabled = flag;
+    }
+
+    function setDebugField(id, value) {
+      $(id).textContent = value == null || value === '' ? '-' : String(value);
+    }
+
+    function setDebugStep(step) {
+      setDebugField('debugStep', step);
+    }
+
+    function appendDebugLog(message) {
+      const el = $('debugLog');
+      const stamp = new Date().toLocaleTimeString('ja-JP', { hour12: false });
+      el.textContent += '\n[' + stamp + '] ' + message;
+      el.scrollTop = el.scrollHeight;
+    }
+
+    function initDebugInfo() {
+      setDebugField('debugLiffId', LIFF_ID || '(empty)');
+      setDebugField('debugUrl', location.href);
+      setDebugField('debugClient', / Line\//i.test(navigator.userAgent) ? 'ua:LINE' : 'ua:other');
+      setDebugField('debugLoggedIn', '-');
+      setDebugStep('boot start');
+      $('debugLog').textContent = '初期化開始';
+    }
+
+    function initLiffWithTimeout(timeoutMs) {
+      return new Promise((resolve, reject) => {
+        let done = false;
+        liff.init({ liffId: LIFF_ID }).then(() => {
+          if (done) return;
+          done = true;
+          resolve();
+        }).catch((err) => {
+          if (done) return;
+          done = true;
+          reject(err);
+        });
+        setTimeout(() => {
+          if (done) return;
+          done = true;
+          reject(new Error('liff.init timeout'));
+        }, timeoutMs || 10000);
+      });
+    }
+
+    async function apiGet(op, params) {
+      const url = new URL(API_BASE_URL);
+      url.searchParams.set('action', 'api');
+      url.searchParams.set('op', op);
+      url.searchParams.set('access_token', state.accessToken);
+      Object.entries(params || {}).forEach(([k, v]) => {
+        if (v !== undefined && v !== null && v !== '') {
+          url.searchParams.set(k, v);
+        }
+      });
+      const res = await fetch(url.toString(), { method: 'GET' });
+      const data = await res.json();
+      if (!data.ok) throw new Error(data.error || 'API error');
+      return data;
+    }
+
+    async function apiPost(body) {
+      const url = new URL(API_BASE_URL);
+      url.searchParams.set('action', 'api');
+      return new Promise((resolve, reject) => {
+        const form = document.createElement('form');
+        form.method = 'POST';
+        form.action = url.toString();
+        form.target = 'postTarget';
+        form.style.display = 'none';
+
+        const payload = Object.assign({}, body, { access_token: state.accessToken });
+        Object.entries(payload).forEach(([k, v]) => {
+          if (v === undefined || v === null || v === '') return;
+          const input = document.createElement('input');
+          input.type = 'hidden';
+          input.name = k;
+          input.value = String(v);
+          form.appendChild(input);
+        });
+
+        document.body.appendChild(form);
+        form.submit();
+        form.remove();
+
+        setTimeout(() => resolve({ ok: true, msg: 'submitted' }), 500);
+      });
+    }
+
+    function escapeHtml(value) {
+      return String(value == null ? '' : value)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+    }
+
+    function renderItems(items, memo1Options) {
+      $('itemSelect').innerHTML = items.map((item) =>
+        '<option value="' + escapeHtml(item) + '">' + escapeHtml(item) + '</option>'
+      ).join('');
+
+      $('memo1Select').innerHTML = memo1Options.map((item) => {
+        const label = item || '未選択';
+        return '<option value="' + escapeHtml(item) + '">' + escapeHtml(label) + '</option>';
+      }).join('');
+    }
+
+    function renderSummary(summary) {
+      const list = $('summaryList');
+      if (!summary || !summary.rows || !summary.rows.length) {
+        list.innerHTML = '<div class="empty">表示できるサマリーがありません。</div>';
+        return;
+      }
+
+      const totalSpent = summary.rows.reduce((acc, row) => acc + Number(row.spend || 0), 0);
+      $('metricOverall').textContent = formatCurrency(summary.overall);
+      $('metricSpent').textContent = formatCurrency(totalSpent);
+      $('metricMonth').textContent = yyyymmToLabel(state.month);
+
+      const head = `
+        <div class="summary-row head">
+          <div>項目</div>
+          <div class="num">予算</div>
+          <div class="num">支出</div>
+          <div class="num">残額</div>
+        </div>
+      `;
+
+      const rows = summary.rows.map((row) => {
+        const remainClass = Number(row.remain) < 0 ? 'remain neg' : 'remain';
+        return `
+          <div class="summary-row">
+            <div class="name">${escapeHtml(row.name)}</div>
+            <div class="num">予算: ${formatCurrency(row.budget)}</div>
+            <div class="num">現在: ${formatCurrency(row.spend)}</div>
+            <div class="num ${remainClass}">残額: ${formatCurrency(row.remain)}</div>
+          </div>
+        `;
+      }).join('');
+
+      list.innerHTML = head + rows;
+    }
+
+    function populateBreakdownFilter(rows) {
+      const select = $('breakdownFilter');
+      const current = select.value || '';
+      const names = Array.from(new Set((rows || []).map((row) => String(row.item || '').trim()).filter(Boolean)));
+      const options = ['<option value="">未選択</option>'].concat(
+        names.map((name) => '<option value="' + escapeHtml(name) + '">' + escapeHtml(name) + '</option>')
+      );
+      select.innerHTML = options.join('');
+      select.value = names.includes(current) ? current : '';
+    }
+
+    function getFilteredBreakdownRows(rows) {
+      const filter = $('breakdownFilter').value || '';
+      if (!filter) return rows;
+      return rows.filter((row) => String(row.item || '') === filter);
+    }
+
+    function renderBreakdownFromState() {
+      const list = $('breakdownList');
+      const rows = getFilteredBreakdownRows(state.breakdownAllRows);
+
+      if (!rows.length) {
+        const filter = $('breakdownFilter').value || '';
+        list.innerHTML = filter
+          ? '<div class="empty">選択した項目の明細がありません。</div>'
+          : '<div class="empty">まだ明細がありません。</div>';
+      } else {
+        const html = rows.map((row) => `
+          <div class="entry">
+            <div>${escapeHtml(row.date || '-')}</div>
+            <div>
+              <div class="entry-item">${escapeHtml(row.item || '')}</div>
+              <div class="entry-meta">${escapeHtml(row.memo1 || '未選択')} / ${escapeHtml(row.memo2 || '-')}</div>
+            </div>
+            <div class="entry-amount">${formatCurrency(row.amount)}</div>
+          </div>
+        `).join('');
+
+        list.innerHTML = html;
+      }
+
+      $('moreBtn').classList.toggle('hidden', !state.breakdownHasMore);
+    }
+
+    function renderBreakdown(data, append) {
+      if (!append) state.breakdownAllRows = [];
+
+      const incoming = data.rows || [];
+      state.breakdownAllRows = append ? state.breakdownAllRows.concat(incoming) : incoming.slice();
+      populateBreakdownFilter(state.breakdownAllRows);
+
+      state.breakdownStart = Number(data.nextStart || 0);
+      state.breakdownHasMore = !!data.hasMore;
+      renderBreakdownFromState();
+    }
+
+    function renderChartFromB64(data) {
+      const img = $('chartImage');
+      const empty = $('chartEmpty');
+      if (!data || !data.b64) {
+        img.classList.add('hidden');
+        empty.classList.remove('hidden');
+        empty.textContent = 'グラフを表示できませんでした。';
+        return;
+      }
+      img.src = 'data:' + (data.mimeType || 'image/jpeg') + ';base64,' + data.b64;
+      img.classList.remove('hidden');
+      empty.classList.add('hidden');
+    }
+
+    async function loadSummary() {
+      const data = await apiGet('summary', { month: state.month });
+      renderSummary(data);
+    }
+
+    async function loadBreakdown(append) {
+      const start = append ? state.breakdownStart : 0;
+      const data = await apiGet('breakdown', { month: state.month, start, limit: state.breakdownLimit });
+      renderBreakdown(data, append);
+    }
+
+    async function loadChart() {
+      const data = await apiGet('chart_overall_b64', { month: state.month });
+      renderChartFromB64(data);
+    }
+
+    async function reloadAll() {
+      setLoading(true);
+      setStatus('最新データを読み込み中です。', 'info');
+      appendDebugLog('reloadAll start: month=' + state.month);
+      try {
+        state.month = monthToYyyymm($('monthInput').value);
+        $('heroSub').textContent = yyyymmToLabel(state.month) + ' のデータを表示しています。';
+        await Promise.all([loadSummary(), loadBreakdown(false), loadChart()]);
+        setStatus('', '');
+        appendDebugLog('reloadAll ok');
+      } catch (err) {
+        console.error(err);
+        setStatus(String(err.message || err), 'error');
+        appendDebugLog('reloadAll error: ' + String(err.message || err));
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    async function addEntry() {
+      const item = $('itemSelect').value;
+      const amount = Number($('amountInput').value);
+      const memo1 = $('memo1Select').value;
+      const memo2 = $('memo2Input').value.trim();
+
+      if (!item) return setStatus('項目を選択してください。', 'error');
+      if (!Number.isFinite(amount) || amount <= 0) return setStatus('金額を正しく入力してください。', 'error');
+
+      setLoading(true);
+      setStatus('登録しています。', 'info');
+      appendDebugLog('add start');
+      try {
+        await apiPost({
+          op: 'add',
+          item: item,
+          amount: amount,
+          memo1: memo1,
+          memo2: memo2,
+          month: state.month
+        });
+        $('amountInput').value = '';
+        $('memo2Input').value = '';
+        setStatus('登録しました。', 'ok');
+        appendDebugLog('add ok');
+        await reloadAll();
+      } catch (err) {
+        setStatus(String(err.message || err), 'error');
+        appendDebugLog('add error: ' + String(err.message || err));
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    async function undoEntry() {
+      setLoading(true);
+      setStatus('直前の入力を取り消しています。', 'info');
+      appendDebugLog('undo start');
+      try {
+        const res = await apiPost({ op: 'undo' });
+        setStatus(res.msg || '取り消しました。', res.ok ? 'ok' : 'error');
+        appendDebugLog('undo result: ' + (res.msg || 'done'));
+        if (res.ok) await reloadAll();
+      } catch (err) {
+        setStatus(String(err.message || err), 'error');
+        appendDebugLog('undo error: ' + String(err.message || err));
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    async function boot() {
+      initDebugInfo();
+      $('monthInput').value = currentMonthInput();
+      state.month = monthToYyyymm($('monthInput').value);
+
+      if (!LIFF_ID || LIFF_ID.indexOf('REPLACE_') === 0) {
+        setDebugStep('missing LIFF_ID');
+        throw new Error('LIFF_ID を index.html に設定してください。');
+      }
+      if (!API_BASE_URL || API_BASE_URL.indexOf('REPLACE_') === 0) {
+        setDebugStep('missing API_BASE_URL');
+        throw new Error('API_BASE_URL を index.html に設定してください。');
+      }
+
+      setDebugStep('liff.init start');
+      appendDebugLog('liff.init start');
+      setStatus('LIFFを初期化しています。', 'info');
+      await initLiffWithTimeout(10000);
+      appendDebugLog('liff.init ok');
+      setDebugStep('liff.init ok');
+
+      $('loginChip').textContent = liff.isInClient() ? 'LINEアプリ内' : '外部ブラウザ';
+      setDebugField('debugClient', liff.isInClient() ? 'true' : 'false');
+      setDebugField('debugLoggedIn', liff.isLoggedIn() ? 'true' : 'false');
+
+      if (!liff.isLoggedIn()) {
+        setDebugStep('redirect login');
+        appendDebugLog('not logged in; redirect to LINE login');
+        setStatus('LINEログインに移動します。', 'info');
+        liff.login({ redirectUri: location.href });
+        return;
+      }
+
+      setDebugStep('get access token');
+      appendDebugLog('get access token');
+      state.accessToken = liff.getAccessToken();
+      appendDebugLog('token ok: ' + (state.accessToken ? 'received' : 'empty'));
+
+      setDebugStep('get profile');
+      appendDebugLog('get profile');
+      const profile = await liff.getProfile();
+      appendDebugLog('profile ok: ' + profile.displayName);
+
+      setDebugStep('whoami api');
+      appendDebugLog('whoami api');
+      const whoami = await apiGet('whoami');
+      state.userId = whoami.userId;
+      appendDebugLog('whoami ok: ' + state.userId);
+
+      $('whoamiLine').textContent = 'LINE: ' + profile.displayName + ' / userId: ' + state.userId;
+      $('heroSub').textContent = profile.displayName + ' さんの家計簿を読み込みました。';
+      setStatus('', '');
+
+      setDebugStep('items api');
+      appendDebugLog('items api');
+      const itemData = await apiGet('items');
+      renderItems(itemData.items || [], itemData.memo1Options || []);
+      appendDebugLog('items ok');
+
+      setDebugStep('initial load');
+      appendDebugLog('initial load');
+      await reloadAll();
+      setDebugStep('ready');
+      appendDebugLog('ready');
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+      $('addBtn').addEventListener('click', addEntry);
+      $('undoBtn').addEventListener('click', undoEntry);
+      $('reloadBtn').addEventListener('click', reloadAll);
+      $('monthInput').addEventListener('change', reloadAll);
+      $('breakdownFilter').addEventListener('change', () => {
+        renderBreakdownFromState();
+      });
+      $('moreBtn').addEventListener('click', () => loadBreakdown(true).catch((err) => {
+        console.error(err);
+        setStatus(String(err.message || err), 'error');
+      }));
+
+      boot().catch((err) => {
+        console.error(err);
+        setStatus(
+          String(err.message || err) +
+          '\n\nよくある原因:\n' +
+          '1) LIFF ID と Endpoint URL の環境が違う\n' +
+          '2) Developing 環境でテスター登録していない\n' +
+          '3) ALLOWED_USER_IDS に自分の userId が入っていない\n' +
+          '4) GAS を再デプロイしていない',
+          'error'
+        );
+      });
+    });
+  </script>
+</body>
+</html>
