@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
   <meta charset="utf-8" />
-  <title>家計簿 ミニアプリ</title>
+  <title>家計簿 ミニアプリ - 月次推移</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
@@ -72,27 +72,6 @@
       gap: 8px;
       flex-wrap: wrap;
       align-items: center;
-    }
-
-    .page-links {
-      margin-top: 12px;
-      display: flex;
-      gap: 8px;
-      flex-wrap: wrap;
-    }
-
-    .page-link {
-      display: inline-flex;
-      align-items: center;
-      min-height: 34px;
-      padding: 0 12px;
-      border-radius: 999px;
-      border: 1px solid rgba(255, 255, 255, 0.2);
-      background: rgba(255, 255, 255, 0.14);
-      color: #fff;
-      text-decoration: none;
-      font-size: 13px;
-      font-weight: 700;
     }
 
     .chip {
@@ -650,6 +629,33 @@
       .insight-grid { grid-template-columns: 1fr; }
     }
 
+    .page-links {
+      margin-top: 12px;
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .page-link {
+      display: inline-flex;
+      align-items: center;
+      min-height: 34px;
+      padding: 0 12px;
+      border-radius: 999px;
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      background: rgba(255, 255, 255, 0.14);
+      color: #fff;
+      text-decoration: none;
+      font-size: 13px;
+      font-weight: 700;
+    }
+
+    body.page-analysis #summaryPanel,
+    body.page-analysis #breakdownPanel,
+    body.page-analysis #qaPanel {
+      display: none;
+    }
+
     @media (max-width: 560px) {
       .app { width: calc(100vw - 16px); padding-top: 8px; }
       .hero { border-radius: 20px; padding: 18px 16px; }
@@ -667,7 +673,7 @@
     }
   </style>
 </head>
-  <body>
+<body class="page-analysis">
   <div class="app">
     <section class="hero">
       <div class="hero-top">
