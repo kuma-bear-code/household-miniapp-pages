@@ -443,6 +443,35 @@
 
     .chart-wrap img { width: 100%; display: block; }
 
+    .analysis-panel {
+      margin-top: 16px;
+    }
+
+    .analysis-chart {
+      width: 100%;
+      height: 280px;
+    }
+
+    .analysis-list {
+      display: grid;
+      gap: 8px;
+      margin-top: 14px;
+    }
+
+    .analysis-row {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto auto;
+      gap: 10px;
+      align-items: center;
+      padding: 10px 12px;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      background: rgba(255, 250, 242, 0.9);
+    }
+
+    .analysis-row .name { font-weight: 700; }
+    .analysis-row .num { text-align: right; font-variant-numeric: tabular-nums; }
+
     .footer-note {
       margin-top: 18px;
       color: var(--muted);
@@ -617,6 +646,45 @@
       </section>
     </div>
 
+    <section class="panel analysis-panel" id="analysisPanel">
+      <div class="panel-head">
+        <h2>月次推移</h2>
+        <button class="mini-btn" type="button" id="analysisReloadBtn">更新</button>
+      </div>
+      <p class="panel-sub" id="analysisSubtitle">月ごとの実績と予算を並べて見られます。</p>
+      <div class="toolbar compact">
+        <input id="analysisFrom" class="control" type="month" />
+        <input id="analysisTo" class="control" type="month" />
+      </div>
+      <div class="insight-grid" style="margin-top:14px;">
+        <div class="insight">
+          <div class="insight-label">月数</div>
+          <div class="insight-value" id="analysisMonthCount">-</div>
+        </div>
+        <div class="insight">
+          <div class="insight-label">実績合計</div>
+          <div class="insight-value" id="analysisTotal">-</div>
+        </div>
+        <div class="insight">
+          <div class="insight-label">月平均</div>
+          <div class="insight-value" id="analysisMonthAverage">-</div>
+        </div>
+        <div class="insight">
+          <div class="insight-label">予算平均</div>
+          <div class="insight-value" id="analysisBudgetAverage">-</div>
+        </div>
+        <div class="insight">
+          <div class="insight-label">予算差額</div>
+          <div class="insight-value" id="analysisBudgetGap">-</div>
+        </div>
+      </div>
+      <div class="chart-wrap" style="margin-top:14px;">
+        <div class="empty" id="analysisChartEmpty">月次推移を読み込み中です。</div>
+        <canvas id="analysisChart" class="analysis-chart hidden"></canvas>
+      </div>
+      <div class="analysis-list" id="analysisSummaryList"></div>
+    </section>
+
     <div class="grid">
       <section class="panel" id="summaryPanel">
         <div class="panel-head">
@@ -676,6 +744,8 @@
       breakdownAllRows: [],
       summaryRows: [],
       overallChart: null,
+      analysisChart: null,
+      analysisData: null,
       summaryDeficitOnly: false,
       loading: false
     };
@@ -1043,9 +1113,7 @@
     }
 
     function overallRowsForView() {
-      const rows = (state.summaryRows || []).slice();
-      rows.sort((a, b) => Number(b.spend || 0) - Number(a.spend || 0));
-      return rows.slice(0, 10);
+      return (state.summaryRows || []).slice();
     }
 
     function renderOverallChart() {
@@ -1068,7 +1136,16 @@
       const labels = rows.map((row) => String(row.name || ''));
       const budgets = rows.map((row) => Number(row.budget || 0));
       const spends = rows.map((row) => Number(row.spend || 0));
-      const remains = rows.map((row) => Number(row.remain || 0));
+      const deltas = rows.map((row) => Number(row.budget || 0) - Number(row.spend || 0));
+      const floating = [];
+      let cumulative = 0;
+      rows.forEach((row) => {
+        const budget = Number(row.budget || 0);
+        const spend = Number(row.spend || 0);
+        const delta = budget - spend;
+        floating.push([cumulative, cumulative + delta]);
+        cumulative += delta;
+      });
 
       canvas.classList.remove('hidden');
       img.classList.add('hidden');
@@ -1079,9 +1156,13 @@
         data: {
           labels,
           datasets: [
-            { label: '予算', data: budgets, backgroundColor: '#5d74c133', borderColor: '#5d74c1', borderWidth: 1 },
-            { label: '支出', data: spends, backgroundColor: '#0f8b6d66', borderColor: '#0f8b6d', borderWidth: 1 },
-            { label: '残額', data: remains, backgroundColor: '#f28f3b55', borderColor: '#d98c30', borderWidth: 1 }
+            {
+              label: 'ウォーターフォール',
+              data: floating,
+              backgroundColor: rows.map((row, i) => deltas[i] >= 0 ? '#0f8b6d66' : '#c0392b66'),
+              borderColor: rows.map((row, i) => deltas[i] >= 0 ? '#0f8b6d' : '#c0392b'),
+              borderWidth: 1
+            }
           ]
         },
         options: {
@@ -1092,7 +1173,17 @@
             legend: { display: true, position: 'bottom' },
             tooltip: {
               callbacks: {
-                label: (ctx) => `${ctx.dataset.label}: ${formatCurrency(ctx.parsed.y || 0)}`
+                label: (ctx) => {
+                  const idx = ctx.dataIndex;
+                  const row = rows[idx] || {};
+                  const delta = Number(row.budget || 0) - Number(row.spend || 0);
+                  return [
+                    '予算: ' + formatCurrency(row.budget || 0),
+                    '支出: ' + formatCurrency(row.spend || 0),
+                    '差額: ' + formatCurrency(delta),
+                    '残額: ' + formatCurrency(Number(row.remain || 0))
+                  ];
+                }
               }
             }
           },
@@ -1101,6 +1192,12 @@
               beginAtZero: true,
               ticks: {
                 callback: (value) => Number(value || 0).toLocaleString('ja-JP')
+              }
+            },
+            x: {
+              ticks: {
+                maxRotation: 45,
+                minRotation: 0
               }
             }
           }
@@ -1142,6 +1239,126 @@
       }
     }
 
+    function destroyAnalysisChart() {
+      if (state.analysisChart) {
+        state.analysisChart.destroy();
+        state.analysisChart = null;
+      }
+    }
+
+    function syncAnalysisDefaults() {
+      const current = currentMonthInput();
+      const yearStart = current.slice(0, 4) + '-01';
+      if ($('analysisFrom') && !$('analysisFrom').value) $('analysisFrom').value = yearStart;
+      if ($('analysisTo') && !$('analysisTo').value) $('analysisTo').value = current;
+    }
+
+    function renderAnalysisChart(data) {
+      const canvas = $('analysisChart');
+      const empty = $('analysisChartEmpty');
+      if (!canvas || typeof Chart === 'undefined') return false;
+
+      const series = (data && data.series && data.series.month) || [];
+      destroyAnalysisChart();
+
+      if (!series.length) {
+        canvas.classList.add('hidden');
+        empty.classList.remove('hidden');
+        empty.textContent = '表示できる月次推移がありません。';
+        return true;
+      }
+
+      canvas.classList.remove('hidden');
+      empty.classList.add('hidden');
+
+      const labels = series.map((row) => String(row.label || row.key || ''));
+      const actual = series.map((row) => Number(row.amount || 0));
+      const budget = series.map((row) => Number(row.budget || 0));
+
+      state.analysisChart = new Chart(canvas.getContext('2d'), {
+        type: 'line',
+        data: {
+          labels,
+          datasets: [
+            {
+              label: '実績',
+              data: actual,
+              borderColor: '#0f8b6d',
+              backgroundColor: '#0f8b6d22',
+              tension: 0.25,
+              fill: false
+            },
+            {
+              label: '予算',
+              data: budget,
+              borderColor: '#5d74c1',
+              backgroundColor: '#5d74c122',
+              tension: 0.25,
+              fill: false
+            }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          interaction: { mode: 'index', intersect: false },
+          plugins: {
+            legend: { display: true, position: 'bottom' },
+            tooltip: {
+              callbacks: {
+                label: (ctx) => `${ctx.dataset.label}: ${formatCurrency(ctx.parsed.y || 0)}`
+              }
+            }
+          },
+          scales: {
+            y: {
+              beginAtZero: true,
+              ticks: {
+                callback: (value) => Number(value || 0).toLocaleString('ja-JP')
+              }
+            }
+          }
+        }
+      });
+
+      const summaryList = $('analysisSummaryList');
+      if (summaryList) {
+        summaryList.innerHTML = series.map((row) => {
+          const gap = Number(row.budget || 0) - Number(row.amount || 0);
+          return `
+            <div class="analysis-row">
+              <div class="name">${escapeHtml(row.label || row.key || '')}</div>
+              <div class="num">${formatCurrency(row.amount || 0)}</div>
+              <div class="num">${formatCurrency(gap)}</div>
+            </div>
+          `;
+        }).join('');
+      }
+
+      const count = Number(data?.range?.monthCount || series.length || 0);
+      if ($('analysisMonthCount')) $('analysisMonthCount').textContent = String(count);
+      if ($('analysisTotal')) $('analysisTotal').textContent = formatCurrency(data?.totals?.amount || 0);
+      if ($('analysisMonthAverage')) $('analysisMonthAverage').textContent = formatCurrency(data?.totals?.average || 0);
+      if ($('analysisBudgetAverage')) $('analysisBudgetAverage').textContent = formatCurrency(data?.totals?.budgetAverage || 0);
+      if ($('analysisBudgetGap')) $('analysisBudgetGap').textContent = formatCurrency(data?.totals?.budgetGap || 0);
+      if ($('analysisSubtitle')) {
+        $('analysisSubtitle').textContent = `${count}か月の推移です。実績と予算、平均との差を並べて確認できます。`;
+      }
+      return true;
+    }
+
+    async function loadAnalysisView() {
+      if (!$('analysisPanel')) return;
+      syncAnalysisDefaults();
+      const data = await apiGet('analysis', {
+        fromMonth: monthToYyyymm($('analysisFrom').value || ''),
+        toMonth: monthToYyyymm($('analysisTo').value || ''),
+        topN: 10
+      });
+      state.analysisData = data;
+      renderAnalysisChart(data);
+    }
+
     async function reloadAll() {
       setLoading(true);
       setStatus('最新データを読み込み中です。', 'info');
@@ -1149,7 +1366,7 @@
       try {
         state.month = monthToYyyymm($('monthInput').value);
         $('heroSub').textContent = yyyymmToLabel(state.month) + ' のデータを表示しています。';
-        await Promise.all([loadSummary(), loadBreakdown(), loadChart()]);
+        await Promise.all([loadSummary(), loadBreakdown(), loadChart(), loadAnalysisView()]);
         setStatus('', '');
         appendDebugLog('reloadAll ok');
       } catch (err) {
@@ -1272,6 +1489,9 @@
       $('undoBtn').addEventListener('click', undoEntry);
       $('reloadBtn').addEventListener('click', reloadAll);
       $('chartReloadBtn').addEventListener('click', () => loadChart().catch((err) => setStatus(String(err.message || err), 'error')));
+      $('analysisReloadBtn').addEventListener('click', () => loadAnalysisView().catch((err) => setStatus(String(err.message || err), 'error')));
+      $('analysisFrom').addEventListener('change', () => loadAnalysisView().catch((err) => setStatus(String(err.message || err), 'error')));
+      $('analysisTo').addEventListener('change', () => loadAnalysisView().catch((err) => setStatus(String(err.message || err), 'error')));
       $('monthInput').addEventListener('change', reloadAll);
       $('amountInput').addEventListener('input', updateAmountPreview);
       $('quickAmountRow').querySelectorAll('[data-amount]').forEach((btn) => {
@@ -1296,6 +1516,7 @@
       });
       $('breakdownSearch').addEventListener('input', renderBreakdownFromState);
       $('breakdownSort').addEventListener('change', renderBreakdownFromState);
+      syncAnalysisDefaults();
       boot().catch((err) => {
         console.error(err);
         setStatus(
