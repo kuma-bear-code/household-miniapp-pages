@@ -658,119 +658,30 @@
           <button class="mini-btn" type="button" id="chartReloadBtn">更新</button>
         </div>
         <p class="panel-sub">今月の残額チャートです。</p>
-        <div class="insight-grid">
-          <div class="insight">
-            <div class="insight-label">予算消化率</div>
-            <div class="insight-value" id="insightRate">-</div>
-          </div>
-          <div class="insight">
-            <div class="insight-label">黒字項目</div>
-            <div class="insight-value" id="insightPositive">-</div>
-          </div>
-          <div class="insight">
-            <div class="insight-label">赤字項目</div>
-            <div class="insight-value" id="insightNegative">-</div>
-          </div>
-        </div>
-        <div class="chart-wrap" id="chartWrap">
-          <div class="empty" id="chartEmpty">グラフを読み込み中です。</div>
-          <img id="chartImage" class="hidden" alt="全体グラフ" />
-        </div>
-      </section>
-    </div>
-
-    <div class="grid">
-      <section class="panel" id="summaryPanel">
-        <div class="panel-head">
-          <h2>項目別サマリー</h2>
-          <button class="mini-btn" type="button" id="showDeficitBtn">赤字だけ</button>
-        </div>
-        <div class="toolbar">
-          <input id="summarySearch" class="control" type="search" placeholder="項目を検索" />
-          <select id="summarySort" class="control">
-            <option value="default">標準</option>
-            <option value="remainAsc">残額が少ない順</option>
-            <option value="spendDesc">支出が多い順</option>
-            <option value="rateDesc">消化率が高い順</option>
-          </select>
-        </div>
-        <div class="summary-list" id="summaryList">
-          <div class="empty">サマリーを読み込み中です。</div>
-        </div>
-      </section>
-
-      <section class="panel" id="breakdownPanel">
-        <div class="panel-head">
-          <h2 style="margin:0;">最近の明細</h2>
-          <select id="breakdownFilter" class="control" style="width:auto; min-width:180px;">
-            <option value="">未選択</option>
-          </select>
-        </div>
-        <p class="panel-sub">項目を選ぶとその明細だけ表示します。未選択なら全部表示します。</p>
-        <div class="toolbar compact">
-          <input id="breakdownSearch" class="control" type="search" placeholder="明細を検索" />
-          <select id="breakdownSort" class="control">
-            <option value="newest">新しい順</option>
-            <option value="amountDesc">金額が大きい順</option>
-            <option value="amountAsc">金額が小さい順</option>
-          </select>
-        </div>
-        <div class="list" id="breakdownList">
-          <div class="empty">明細を読み込み中です。</div>
-        </div>
-      </section>
-    </div>
-
-  <section class="panel analysis-panel" id="analysisPanel">
-    <div class="panel-head">
-      <div>
-        <h2>範囲分析</h2>
-        <p class="panel-sub">明細マスターを使って、期間・項目・大分類を切り替えながらアプリ側で描画します。</p>
-      </div>
-      <button class="mini-btn" type="button" id="analysisReloadBtn">更新</button>
-    </div>
-    <div class="toolbar">
-      <input id="analysisFrom" class="control" type="month" />
-      <input id="analysisTo" class="control" type="month" />
-    </div>
-    <div class="toolbar compact">
-      <select id="analysisGroupBy" class="control">
-        <option value="month">月別推移</option>
-        <option value="item">項目別</option>
-        <option value="major">大分類別</option>
-        <option value="payment">支払方法別</option>
-      </select>
-      <button id="analysisApplyBtn" class="btn primary" type="button">この範囲で描画</button>
-    </div>
-    <div class="toolbar compact">
-      <input id="analysisQuery" class="control" type="search" placeholder="キーワード検索" />
-      <select id="analysisTopN" class="control">
-        <option value="5">上位5</option>
-        <option value="10" selected>上位10</option>
-        <option value="15">上位15</option>
-        <option value="20">上位20</option>
-      </select>
-    </div>
-    <div class="toolbar compact">
-      <select id="analysisItem" class="control">
-        <option value="">項目フィルタなし</option>
-      </select>
-      <select id="analysisMajor" class="control">
-        <option value="">大分類フィルタなし</option>
-      </select>
-    </div>
-    <div class="insight-grid">
+            <div class="insight-grid">
       <div class="insight">
         <div class="insight-label">件数</div>
         <div class="insight-value" id="analysisCount">-</div>
       </div>
       <div class="insight">
-        <div class="insight-label">合計</div>
+        <div class="insight-label">総額</div>
         <div class="insight-value" id="analysisTotal">-</div>
       </div>
       <div class="insight">
-        <div class="insight-label">平均</div>
-        <div class="insight-value" id="analysisAverage">-</div>
+        <div class="insight-label">月平均</div>
+        <div class="insight-value" id="analysisMonthAverage">-</div>
+      </div>
+      <div class="insight">
+        <div class="insight-label">記録平均</div>
+        <div class="insight-value" id="analysisRecordAverage">-</div>
+      </div>
+      <div class="insight">
+        <div class="insight-label">予算平均</div>
+        <div class="insight-value" id="analysisBudgetAverage">-</div>
+      </div>
+      <div class="insight">
+        <div class="insight-label">予算差額</div>
+        <div class="insight-value" id="analysisBudgetGap">-</div>
       </div>
     </div>
     <div class="chart-wrap analysis-chart-wrap">
@@ -807,6 +718,9 @@
       breakdownAllRows: [],
       summaryRows: [],
       summaryDeficitOnly: false,
+      overallChart: null,
+      overallData: null,
+      overallMode: 'waterfall',
       analysisChart: null,
       analysisData: null,
       analysisOptions: { items: [], majors: [], payments: [] },
@@ -1420,12 +1334,20 @@
           .join('');
         if (items.includes(currentItem)) itemSelect.value = currentItem;
         if (majors.includes(currentMajor)) majorSelect.value = currentMajor;
-      }
-
-      function renderAnalysisStats(data) {
+      }      function renderAnalysisStats(data) {
+        const monthCount = Number(data?.range?.monthCount || 0);
         $('analysisCount').textContent = Number(data?.totals?.count || 0).toLocaleString('ja-JP') + '件';
         $('analysisTotal').textContent = formatCurrency(data?.totals?.amount || 0);
-        $('analysisAverage').textContent = formatCurrency(data?.totals?.average || 0);
+        $('analysisMonthAverage').textContent = formatCurrency(data?.totals?.average || 0);
+        $('analysisRecordAverage').textContent = formatCurrency(data?.totals?.recordAverage || 0);
+        $('analysisBudgetAverage').textContent = formatCurrency(data?.totals?.budgetAverage || 0);
+        $('analysisBudgetGap').textContent = formatCurrency(data?.totals?.budgetGap || 0);
+        const title = $('analysisPanel')?.querySelector('.panel-sub');
+        if (title) {
+          title.textContent = monthCount
+            ? `${monthCount}か月分を集計しています。月平均・記録平均・予算平均との差を並べて見られます。`
+            : '期間を選ぶと、月平均と予算平均との差を見られます。';
+        }
       }
 
       function renderAnalysisChart(data) {
@@ -1445,6 +1367,7 @@
 
         const labels = series.map((row) => String(row.label || row.key || ''));
         const values = series.map((row) => Number(row.amount || 0));
+        const budgets = series.map((row) => Number(row.budget || 0));
         const counts = series.map((row) => Number(row.count || 0));
         const color = groupBy === 'month' ? '#0f8b6d' : groupBy === 'major' ? '#5d74c1' : '#d98c30';
         const chartType = groupBy === 'month' ? 'line' : 'bar';
@@ -1456,15 +1379,40 @@
           type: chartType,
           data: {
             labels,
-            datasets: [{
+            datasets: groupBy === 'month' ? [{
+              label: '実績',
+              data: values,
+              borderColor: '#0f8b6d',
+              backgroundColor: '#0f8b6d33',
+              pointBackgroundColor: '#0f8b6d',
+              borderWidth: 2,
+              tension: 0.3,
+              fill: false,
+              yAxisID: 'y'
+            }, {
+              label: '予算',
+              data: budgets,
+              borderColor: '#5d74c1',
+              backgroundColor: '#5d74c133',
+              pointBackgroundColor: '#5d74c1',
+              borderWidth: 2,
+              tension: 0.3,
+              fill: false,
+              yAxisID: 'y'
+            }, {
+              label: '件数',
+              data: counts,
+              borderColor: '#8b6f4e',
+              backgroundColor: '#8b6f4e33',
+              borderWidth: 1,
+              type: 'bar',
+              yAxisID: 'y1'
+            }] : [{
               label: analysisGroupLabel(groupBy),
               data: values,
               borderColor: color,
               backgroundColor: color + '33',
-              pointBackgroundColor: color,
               borderWidth: 2,
-              tension: 0.3,
-              fill: groupBy === 'month',
               yAxisID: 'y'
             }, {
               label: '件数',
@@ -1487,6 +1435,12 @@
                   label: (ctx) => {
                     const idx = ctx.dataIndex;
                     const row = series[idx] || {};
+                    if (groupBy === 'month' && ctx.dataset.label === '予算') {
+                      return '予算: ' + formatCurrency(row.budget || 0);
+                    }
+                    if (groupBy === 'month' && ctx.dataset.label === '実績') {
+                      return '実績: ' + formatCurrency(row.amount || 0);
+                    }
                     if (ctx.datasetIndex === 0) {
                       return '金額: ' + formatCurrency(row.amount || 0);
                     }
@@ -1514,7 +1468,6 @@
           }
         });
       }
-
       function renderAnalysisSummaries(data) {
         const summaryList = $('analysisSummaryList');
         const detailList = $('analysisDetailList');
@@ -1606,6 +1559,173 @@
         $('analysisMajor').addEventListener('change', refresh);
         $('analysisFrom').addEventListener('change', refresh);
         $('analysisTo').addEventListener('change', refresh);
+      });
+    })();
+  </script>
+  <script>
+    (() => {
+      function destroyOverallChart() {
+        if (state.overallChart) {
+          state.overallChart.destroy();
+          state.overallChart = null;
+        }
+      }
+
+      function overallRowsForView() {
+        const rows = (state.summaryRows || []).slice();
+        const topN = Number($('overallTopN')?.value || 10);
+        const mode = $('overallMode')?.value || 'waterfall';
+
+        if (mode === 'waterfall') {
+          rows.sort((a, b) => Math.abs(Number(b.spend || 0) - Number(b.budget || 0)) - Math.abs(Number(a.spend || 0) - Number(a.budget || 0)));
+        } else {
+          rows.sort((a, b) => Number(b.spend || 0) - Number(a.spend || 0));
+        }
+        return rows.slice(0, topN);
+      }
+
+      function renderOverallChart() {
+        const canvas = $('overallChart');
+        const empty = $('chartEmpty');
+        const img = $('chartImage');
+        if (!canvas || typeof Chart === 'undefined') return;
+
+        destroyOverallChart();
+        const rows = overallRowsForView();
+        if (!rows.length) {
+          canvas.classList.add('hidden');
+          img?.classList.add('hidden');
+          empty.classList.remove('hidden');
+          empty.textContent = '全体グラフを描画中です。';
+          return;
+        }
+
+        const mode = $('overallMode')?.value || 'waterfall';
+        const labels = rows.map((row) => row.name);
+        canvas.classList.remove('hidden');
+        img?.classList.add('hidden');
+        empty.classList.add('hidden');
+
+        if (mode === 'compare') {
+          state.overallChart = new Chart(canvas.getContext('2d'), {
+            type: 'bar',
+            data: {
+              labels,
+              datasets: [
+                { label: '予算', data: rows.map((row) => Number(row.budget || 0)), backgroundColor: '#5d74c133', borderColor: '#5d74c1', borderWidth: 1 },
+                { label: '実績', data: rows.map((row) => Number(row.spend || 0)), backgroundColor: '#0f8b6d66', borderColor: '#0f8b6d', borderWidth: 1 },
+                { label: '残額', data: rows.map((row) => Number(row.remain || 0)), backgroundColor: '#f28f3b55', borderColor: '#d98c30', borderWidth: 1 }
+              ]
+            },
+            options: {
+              responsive: true,
+              maintainAspectRatio: false,
+              plugins: {
+                legend: { position: 'bottom' },
+                tooltip: {
+                  callbacks: {
+                    label: (ctx) => `${ctx.dataset.label}: ${formatCurrency(ctx.parsed.y || 0)}`
+                  }
+                }
+              },
+              scales: {
+                y: {
+                  beginAtZero: true,
+                  ticks: { callback: (value) => Number(value || 0).toLocaleString('ja-JP') }
+                }
+              }
+            }
+          });
+          return;
+        }
+
+        const floating = rows.map((row) => {
+          const budget = Number(row.budget || 0);
+          const spend = Number(row.spend || 0);
+          return [Math.min(budget, spend), Math.max(budget, spend)];
+        });
+
+        state.overallChart = new Chart(canvas.getContext('2d'), {
+          type: 'bar',
+          data: {
+            labels,
+            datasets: [{
+              label: '予算-実績差',
+              data: floating,
+              backgroundColor: rows.map((row) => Number(row.remain || 0) >= 0 ? '#0f8b6d66' : '#c0392b66'),
+              borderColor: rows.map((row) => Number(row.remain || 0) >= 0 ? '#0f8b6d' : '#c0392b'),
+              borderWidth: 1
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+              legend: { display: true, position: 'bottom' },
+              tooltip: {
+                callbacks: {
+                  label: (ctx) => {
+                    const row = rows[ctx.dataIndex] || {};
+                    return [
+                      '予算: ' + formatCurrency(row.budget || 0),
+                      '実績: ' + formatCurrency(row.spend || 0),
+                      '残額: ' + formatCurrency(row.remain || 0)
+                    ];
+                  }
+                }
+              }
+            },
+            scales: {
+              y: {
+                beginAtZero: true,
+                ticks: { callback: (value) => Number(value || 0).toLocaleString('ja-JP') }
+              }
+            }
+          }
+        });
+      }
+
+      const originalReloadAll = window.reloadAll;
+      if (typeof originalReloadAll === 'function') {
+        window.reloadAll = async function (...args) {
+          const result = await originalReloadAll.apply(this, args);
+          renderOverallChart();
+          return result;
+        };
+      }
+
+      document.addEventListener('DOMContentLoaded', () => {
+        const chartWrap = $('chartWrap');
+        const panelHead = $('chartReloadBtn')?.parentElement;
+        if (chartWrap && !$('overallChart')) {
+          const toolbar = document.createElement('div');
+          toolbar.className = 'toolbar compact';
+          toolbar.innerHTML = `
+            <select id="overallMode" class="control">
+              <option value="waterfall">ウォーターフォール</option>
+              <option value="compare">予算比較</option>
+            </select>
+            <select id="overallTopN" class="control">
+              <option value="5">上位5</option>
+              <option value="10" selected>上位10</option>
+              <option value="15">上位15</option>
+              <option value="20">上位20</option>
+            </select>
+          `;
+          panelHead?.insertAdjacentElement('afterend', toolbar);
+
+          const canvas = document.createElement('canvas');
+          canvas.id = 'overallChart';
+          const empty = $('chartEmpty');
+          chartWrap.insertBefore(canvas, empty || chartWrap.firstChild);
+        }
+
+        if (!$('overallChart')) return;
+        const refresh = () => renderOverallChart();
+        $('overallMode')?.addEventListener('change', refresh);
+        $('overallTopN')?.addEventListener('change', refresh);
+        $('chartReloadBtn')?.addEventListener('click', refresh);
+        refresh();
       });
     })();
   </script>
