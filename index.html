@@ -218,6 +218,31 @@
       background: rgba(255, 250, 242, 0.9);
     }
 
+    .summary-row.summary-clickable {
+      width: 100%;
+      appearance: none;
+      text-align: left;
+      font: inherit;
+      cursor: pointer;
+      transition: transform 0.08s ease, box-shadow 0.08s ease, background-color 0.08s ease, border-color 0.08s ease;
+      box-shadow: 0 1px 0 rgba(78, 55, 28, 0.04), 0 6px 14px rgba(78, 55, 28, 0.03);
+    }
+
+    .summary-row.summary-clickable:hover,
+    .summary-row.summary-clickable:focus-visible {
+      transform: translateY(-1px);
+      border-color: rgba(15, 139, 109, 0.28);
+      box-shadow: 0 8px 18px rgba(78, 55, 28, 0.08);
+      background: rgba(255, 247, 235, 0.98);
+      outline: none;
+    }
+
+    .summary-row.summary-clickable:active {
+      transform: translateY(1px) scale(0.995);
+      box-shadow: 0 2px 6px rgba(78, 55, 28, 0.06);
+      background: rgba(255, 244, 228, 1);
+    }
+
     .summary-row.head {
       background: transparent;
       border: 0;
@@ -430,14 +455,14 @@
     </div>
 
     <div class="grid">
-      <section class="panel">
+      <section class="panel" id="summaryPanel">
         <h2>項目別サマリー</h2>
         <div class="summary-list" id="summaryList">
           <div class="empty">サマリーを読み込み中です。</div>
         </div>
       </section>
 
-      <section class="panel">
+      <section class="panel" id="breakdownPanel">
         <div style="display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap;">
           <h2 style="margin:0;">最近の明細</h2>
           <select id="breakdownFilter" class="control" style="width:auto; min-width:180px;">
@@ -644,16 +669,19 @@
       const rows = summary.rows.map((row) => {
         const remainClass = Number(row.remain) < 0 ? 'remain neg' : 'remain';
         return `
-          <div class="summary-row">
+          <button class="summary-row summary-clickable" type="button" data-item="${escapeHtml(row.name)}">
             <div class="name">${escapeHtml(row.name)}</div>
             <div class="num">予算: ${formatCurrency(row.budget)}</div>
             <div class="num">現在: ${formatCurrency(row.spend)}</div>
             <div class="num ${remainClass}">残額: ${formatCurrency(row.remain)}</div>
-          </div>
+          </button>
         `;
       }).join('');
 
       list.innerHTML = head + rows;
+      list.querySelectorAll('.summary-clickable').forEach((btn) => {
+        btn.addEventListener('click', () => jumpToBreakdownFilter(btn.dataset.item || ''));
+      });
     }
 
     function populateBreakdownFilter(rows) {
@@ -698,6 +726,22 @@
       }
 
       $('moreBtn').classList.toggle('hidden', !state.breakdownHasMore);
+    }
+
+    function jumpToBreakdownFilter(itemName) {
+      const select = $('breakdownFilter');
+      if (!itemName) return;
+
+      const exists = Array.from(select.options).some((opt) => opt.value === itemName);
+      if (!exists) return;
+
+      select.value = itemName;
+      renderBreakdownFromState();
+
+      const panel = $('breakdownPanel');
+      if (panel) {
+        panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
     }
 
     function renderBreakdown(data, append) {
