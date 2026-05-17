@@ -5,6 +5,7 @@
   <title>家計簿 ミニアプリ</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
   <style>
     :root {
       --bg: #f7f3ea;
@@ -436,6 +437,72 @@
 
     .chart-wrap img { width: 100%; display: block; }
 
+    .analysis-panel { margin-top: 16px; }
+    .analysis-panel .panel-head { align-items: flex-start; }
+    .analysis-chart-wrap {
+      position: relative;
+      min-height: 320px;
+      padding: 14px;
+    }
+    .analysis-chart-wrap canvas {
+      width: 100% !important;
+      height: 280px !important;
+    }
+    .analysis-chart-wrap .empty {
+      margin: 0;
+      width: 100%;
+    }
+    .analysis-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+      margin-top: 14px;
+    }
+    .analysis-card {
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      background: rgba(255, 250, 242, 0.86);
+      padding: 12px;
+    }
+    .analysis-card-title {
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--muted);
+      margin-bottom: 10px;
+    }
+    .analysis-list {
+      display: grid;
+      gap: 8px;
+    }
+    .analysis-row {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto auto;
+      gap: 8px;
+      align-items: center;
+      padding: 10px 12px;
+      border-radius: 12px;
+      background: #fff;
+      border: 1px solid rgba(223, 210, 191, 0.9);
+    }
+    .analysis-row .name { font-weight: 700; word-break: break-word; }
+    .analysis-row .num { font-variant-numeric: tabular-nums; text-align: right; }
+    .analysis-detail-row {
+      display: grid;
+      grid-template-columns: 76px minmax(0, 1fr) 88px;
+      gap: 8px;
+      align-items: start;
+      padding: 10px 12px;
+      border-radius: 12px;
+      background: #fff;
+      border: 1px solid rgba(223, 210, 191, 0.9);
+    }
+    .analysis-detail-row .meta {
+      margin-top: 4px;
+      font-size: 12px;
+      color: var(--muted);
+      line-height: 1.35;
+    }
+
     .footer-note {
       margin-top: 18px;
       color: var(--muted);
@@ -491,6 +558,9 @@
       .summary-row { grid-template-columns: 1fr; gap: 4px; }
       .summary-row .num { text-align: left; }
       .entry { grid-template-columns: 56px minmax(0, 1fr) 84px; }
+      .analysis-grid { grid-template-columns: 1fr; }
+      .analysis-row,
+      .analysis-detail-row { grid-template-columns: 1fr; }
     }
   </style>
 </head>
@@ -650,6 +720,75 @@
         </div>
       </section>
     </div>
+
+  <section class="panel analysis-panel" id="analysisPanel">
+    <div class="panel-head">
+      <div>
+        <h2>範囲分析</h2>
+        <p class="panel-sub">明細マスターを使って、期間・項目・大分類を切り替えながらアプリ側で描画します。</p>
+      </div>
+      <button class="mini-btn" type="button" id="analysisReloadBtn">更新</button>
+    </div>
+    <div class="toolbar">
+      <input id="analysisFrom" class="control" type="month" />
+      <input id="analysisTo" class="control" type="month" />
+    </div>
+    <div class="toolbar compact">
+      <select id="analysisGroupBy" class="control">
+        <option value="month">月別推移</option>
+        <option value="item">項目別</option>
+        <option value="major">大分類別</option>
+        <option value="payment">支払方法別</option>
+      </select>
+      <button id="analysisApplyBtn" class="btn primary" type="button">この範囲で描画</button>
+    </div>
+    <div class="toolbar compact">
+      <input id="analysisQuery" class="control" type="search" placeholder="キーワード検索" />
+      <select id="analysisTopN" class="control">
+        <option value="5">上位5</option>
+        <option value="10" selected>上位10</option>
+        <option value="15">上位15</option>
+        <option value="20">上位20</option>
+      </select>
+    </div>
+    <div class="toolbar compact">
+      <select id="analysisItem" class="control">
+        <option value="">項目フィルタなし</option>
+      </select>
+      <select id="analysisMajor" class="control">
+        <option value="">大分類フィルタなし</option>
+      </select>
+    </div>
+    <div class="insight-grid">
+      <div class="insight">
+        <div class="insight-label">件数</div>
+        <div class="insight-value" id="analysisCount">-</div>
+      </div>
+      <div class="insight">
+        <div class="insight-label">合計</div>
+        <div class="insight-value" id="analysisTotal">-</div>
+      </div>
+      <div class="insight">
+        <div class="insight-label">平均</div>
+        <div class="insight-value" id="analysisAverage">-</div>
+      </div>
+    </div>
+    <div class="chart-wrap analysis-chart-wrap">
+      <canvas id="analysisChart"></canvas>
+      <div class="empty" id="analysisChartEmpty">範囲を選ぶとここにグラフが出ます。</div>
+    </div>
+    <div class="analysis-grid">
+      <div class="analysis-card">
+        <div class="analysis-card-title">集計結果</div>
+        <div class="analysis-list" id="analysisSummaryList"></div>
+      </div>
+      <div class="analysis-card">
+        <div class="analysis-card-title">抽出明細</div>
+        <div class="analysis-list" id="analysisDetailList"></div>
+      </div>
+    </div>
+  </section>
+
   </div>
 
   <iframe id="postTarget" name="postTarget" class="hidden" title="postTarget"></iframe>
@@ -668,6 +807,9 @@
       breakdownAllRows: [],
       summaryRows: [],
       summaryDeficitOnly: false,
+      analysisChart: null,
+      analysisData: null,
+      analysisOptions: { items: [], majors: [], payments: [] },
       loading: false
     };
 
@@ -759,6 +901,45 @@
       const budget = Number(row.budget || 0);
       if (budget <= 0) return 0;
       return Math.max(0, Math.round((Number(row.spend || 0) / budget) * 100));
+    }
+
+    function shiftMonthInput(monthValue, offset) {
+      const raw = String(monthValue || '').trim();
+      if (!/^\d{4}-\d{2}$/.test(raw)) return raw;
+      const [year, month] = raw.split('-').map(Number);
+      const d = new Date(year, month - 1 + Number(offset || 0), 1);
+      const y = d.getFullYear();
+      const m = String(d.getMonth() + 1).padStart(2, '0');
+      return y + '-' + m;
+    }
+
+    function defaultAnalysisFromMonth() {
+      return shiftMonthInput(currentMonthInput(), -5);
+    }
+
+    function syncAnalysisDefaults() {
+      if (!$('analysisFrom') || !$('analysisTo')) return;
+      if (!$('analysisFrom').value) $('analysisFrom').value = defaultAnalysisFromMonth();
+      if (!$('analysisTo').value) $('analysisTo').value = currentMonthInput();
+    }
+
+    function analysisGroupLabel(groupBy) {
+      if (groupBy === 'item') return '項目別';
+      if (groupBy === 'major') return '大分類別';
+      if (groupBy === 'payment') return '支払方法別';
+      return '月別推移';
+    }
+
+    function analysisSeriesFor(groupBy, data) {
+      if (!data || !data.series) return [];
+      return data.series[groupBy] || [];
+    }
+
+    function destroyAnalysisChart() {
+      if (state.analysisChart) {
+        state.analysisChart.destroy();
+        state.analysisChart = null;
+      }
     }
 
     function initLiffWithTimeout(timeoutMs) {
@@ -1220,6 +1401,213 @@
         );
       });
     });
+  </script>
+  <script>
+    (() => {
+      function populateAnalysisFilters(data) {
+        const itemSelect = $('analysisItem');
+        const majorSelect = $('analysisMajor');
+        const currentItem = itemSelect.value || '';
+        const currentMajor = majorSelect.value || '';
+        const items = (data && data.options && data.options.items) || [];
+        const majors = (data && data.options && data.options.majors) || [];
+
+        itemSelect.innerHTML = ['<option value="">項目フィルタなし</option>']
+          .concat(items.map((name) => '<option value="' + escapeHtml(name) + '">' + escapeHtml(name) + '</option>'))
+          .join('');
+        majorSelect.innerHTML = ['<option value="">大分類フィルタなし</option>']
+          .concat(majors.map((name) => '<option value="' + escapeHtml(name) + '">' + escapeHtml(name) + '</option>'))
+          .join('');
+        if (items.includes(currentItem)) itemSelect.value = currentItem;
+        if (majors.includes(currentMajor)) majorSelect.value = currentMajor;
+      }
+
+      function renderAnalysisStats(data) {
+        $('analysisCount').textContent = Number(data?.totals?.count || 0).toLocaleString('ja-JP') + '件';
+        $('analysisTotal').textContent = formatCurrency(data?.totals?.amount || 0);
+        $('analysisAverage').textContent = formatCurrency(data?.totals?.average || 0);
+      }
+
+      function renderAnalysisChart(data) {
+        const canvas = $('analysisChart');
+        const empty = $('analysisChartEmpty');
+        const groupBy = $('analysisGroupBy').value || 'month';
+        const series = analysisSeriesFor(groupBy, data);
+
+        destroyAnalysisChart();
+
+        if (!series.length || typeof Chart === 'undefined') {
+          canvas.classList.add('hidden');
+          empty.classList.remove('hidden');
+          empty.textContent = '範囲を選ぶとここにグラフが出ます。';
+          return;
+        }
+
+        const labels = series.map((row) => String(row.label || row.key || ''));
+        const values = series.map((row) => Number(row.amount || 0));
+        const counts = series.map((row) => Number(row.count || 0));
+        const color = groupBy === 'month' ? '#0f8b6d' : groupBy === 'major' ? '#5d74c1' : '#d98c30';
+        const chartType = groupBy === 'month' ? 'line' : 'bar';
+
+        canvas.classList.remove('hidden');
+        empty.classList.add('hidden');
+
+        state.analysisChart = new Chart(canvas.getContext('2d'), {
+          type: chartType,
+          data: {
+            labels,
+            datasets: [{
+              label: analysisGroupLabel(groupBy),
+              data: values,
+              borderColor: color,
+              backgroundColor: color + '33',
+              pointBackgroundColor: color,
+              borderWidth: 2,
+              tension: 0.3,
+              fill: groupBy === 'month',
+              yAxisID: 'y'
+            }, {
+              label: '件数',
+              data: counts,
+              borderColor: '#8b6f4e',
+              backgroundColor: '#8b6f4e33',
+              borderWidth: 1,
+              type: 'bar',
+              yAxisID: 'y1'
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            interaction: { mode: 'index', intersect: false },
+            plugins: {
+              legend: { display: true, position: 'bottom' },
+              tooltip: {
+                callbacks: {
+                  label: (ctx) => {
+                    const idx = ctx.dataIndex;
+                    const row = series[idx] || {};
+                    if (ctx.datasetIndex === 0) {
+                      return '金額: ' + formatCurrency(row.amount || 0);
+                    }
+                    return '件数: ' + Number(row.count || 0) + '件';
+                  }
+                }
+              }
+            },
+            scales: {
+              y: {
+                beginAtZero: true,
+                ticks: {
+                  callback: (value) => Number(value || 0).toLocaleString('ja-JP')
+                }
+              },
+              y1: {
+                beginAtZero: true,
+                position: 'right',
+                grid: { drawOnChartArea: false },
+                ticks: {
+                  callback: (value) => Number(value || 0).toLocaleString('ja-JP')
+                }
+              }
+            }
+          }
+        });
+      }
+
+      function renderAnalysisSummaries(data) {
+        const summaryList = $('analysisSummaryList');
+        const detailList = $('analysisDetailList');
+        const groupBy = $('analysisGroupBy').value || 'month';
+        const series = analysisSeriesFor(groupBy, data);
+        const detailRows = (data && data.rows) || [];
+        const topN = Number($('analysisTopN').value || 10);
+
+        if (!series.length) {
+          summaryList.innerHTML = '<div class="empty">集計結果がありません。</div>';
+        } else {
+          summaryList.innerHTML = series.slice(0, topN).map((row) => `
+            <div class="analysis-row">
+              <div class="name">${escapeHtml(row.label || row.key || '')}</div>
+              <div class="num">${formatCurrency(row.amount || 0)}</div>
+              <div class="num">${Number(row.count || 0)}件</div>
+            </div>
+          `).join('');
+        }
+
+        if (!detailRows.length) {
+          detailList.innerHTML = '<div class="empty">抽出明細がありません。</div>';
+        } else {
+          detailList.innerHTML = detailRows.slice(0, 30).map((row) => `
+            <div class="analysis-detail-row">
+              <div>${escapeHtml(row.date || '-')}</div>
+              <div>
+                <div class="name">${escapeHtml(row.item || '')}</div>
+                <div class="meta">${escapeHtml(row.major || '未分類')} / ${escapeHtml(row.payment || '未選択')} / ${escapeHtml(row.memo || '')}</div>
+              </div>
+              <div class="num">${formatCurrency(row.amount || 0)}</div>
+            </div>
+          `).join('');
+        }
+      }
+
+      function loadAnalysisView() {
+        if (typeof state === 'undefined' || !state.accessToken) return Promise.resolve();
+        const payload = {
+          fromMonth: $('analysisFrom').value || currentMonthInput(),
+          toMonth: $('analysisTo').value || currentMonthInput(),
+          groupBy: $('analysisGroupBy').value || 'month',
+          topN: $('analysisTopN').value || 10,
+          query: $('analysisQuery').value || '',
+          item: $('analysisItem').value || '',
+          major: $('analysisMajor').value || ''
+        };
+        return apiGet('analysis', payload).then((data) => {
+          state.analysisData = data;
+          state.analysisOptions = data.options || { items: [], majors: [], payments: [] };
+          renderAnalysisStats(data);
+          populateAnalysisFilters(data);
+          renderAnalysisChart(data);
+          renderAnalysisSummaries(data);
+          return data;
+        });
+      }
+
+      const originalReloadAll = window.reloadAll;
+      if (typeof originalReloadAll === 'function') {
+        window.reloadAll = async function (...args) {
+          const result = await originalReloadAll.apply(this, args);
+          await loadAnalysisView().catch((err) => {
+            console.error(err);
+            if (typeof setStatus === 'function') setStatus(String(err.message || err), 'error');
+          });
+          return result;
+        };
+      }
+
+      document.addEventListener('DOMContentLoaded', () => {
+        if (!$('analysisPanel')) return;
+        syncAnalysisDefaults();
+
+        const refresh = () => loadAnalysisView().catch((err) => {
+          console.error(err);
+          if (typeof setStatus === 'function') setStatus(String(err.message || err), 'error');
+        });
+
+        $('analysisReloadBtn').addEventListener('click', refresh);
+        $('analysisApplyBtn').addEventListener('click', refresh);
+        $('analysisGroupBy').addEventListener('change', refresh);
+        $('analysisTopN').addEventListener('change', refresh);
+        $('analysisQuery').addEventListener('input', () => {
+          window.clearTimeout(window.__analysisQueryTimer);
+          window.__analysisQueryTimer = window.setTimeout(refresh, 250);
+        });
+        $('analysisItem').addEventListener('change', refresh);
+        $('analysisMajor').addEventListener('change', refresh);
+        $('analysisFrom').addEventListener('change', refresh);
+        $('analysisTo').addEventListener('change', refresh);
+      });
+    })();
   </script>
 </body>
 </html>
