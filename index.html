@@ -469,6 +469,19 @@
       background: rgba(255, 250, 242, 0.9);
     }
 
+    .analysis-row.head {
+      background: transparent;
+      border: 0;
+      padding: 0 4px;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    .analysis-row.month {
+      grid-template-columns: minmax(0, 1.2fr) repeat(4, auto);
+    }
+
     .analysis-row .name { font-weight: 700; }
     .analysis-row .num { text-align: right; font-variant-numeric: tabular-nums; }
 
@@ -726,7 +739,7 @@
         <div class="insight"><div class="insight-label">実績合計</div><div class="insight-value" id="analysisTotal">-</div></div>
         <div class="insight"><div class="insight-label">月平均</div><div class="insight-value" id="analysisMonthAverage">-</div></div>
         <div class="insight"><div class="insight-label">記録平均</div><div class="insight-value" id="analysisRecordAverage">-</div></div>
-        <div class="insight"><div class="insight-label">予算平均</div><div class="insight-value" id="analysisBudgetAverage">-</div></div>
+        <div class="insight"><div class="insight-label">予算合計</div><div class="insight-value" id="analysisBudgetAverage">-</div></div>
         <div class="insight"><div class="insight-label">予算差額</div><div class="insight-value" id="analysisBudgetGap">-</div></div>
         <div class="insight"><div class="insight-label">前年差</div><div class="insight-value" id="analysisYoYGap">-</div></div>
       </div>
@@ -1368,13 +1381,13 @@
       if ($('analysisTotal')) $('analysisTotal').textContent = formatCurrency(data?.totals?.amount || 0);
       if ($('analysisMonthAverage')) $('analysisMonthAverage').textContent = formatCurrency(data?.totals?.average || 0);
       if ($('analysisRecordAverage')) $('analysisRecordAverage').textContent = formatCurrency(data?.totals?.recordAverage || 0);
-      if ($('analysisBudgetAverage')) $('analysisBudgetAverage').textContent = formatCurrency(data?.totals?.budgetAverage || 0);
+      if ($('analysisBudgetAverage')) $('analysisBudgetAverage').textContent = formatCurrency(data?.totals?.budgetTotal || 0);
       if ($('analysisBudgetGap')) $('analysisBudgetGap').textContent = formatCurrency(data?.totals?.budgetGap || 0);
       if ($('analysisYoYGap')) $('analysisYoYGap').textContent = formatCurrency(data?.totals?.yoyGap || 0);
       if ($('analysisSubtitle')) {
         $('analysisSubtitle').textContent = monthCount
-          ? `${monthCount}か月分を集計しています。月平均・記録平均・予算平均との差と前年差を並べて見られます。`
-          : '期間を選ぶと、月平均・予算平均との差・前年差を見られます。';
+          ? `${monthCount}か月分を集計しています。月平均・記録平均・予算合計と前年差を並べて見られます。`
+          : '期間を選ぶと、月平均・記録平均・予算合計と前年差を見られます。';
       }
       return count;
     }
@@ -1430,7 +1443,7 @@
               yAxisID: 'y'
             },
             {
-              label: '前年差',
+              label: '前年実績',
               data: prevYear,
               borderColor: '#8b6f4e',
               backgroundColor: '#8b6f4e22',
@@ -1487,7 +1500,7 @@
                   if (groupBy === 'month') {
                     if (ctx.dataset.label === '実績') return '実績: ' + formatCurrency(row.amount || 0);
                     if (ctx.dataset.label === '予算') return '予算: ' + formatCurrency(row.budget || 0);
-                    if (ctx.dataset.label === '前年差') return '前年差: ' + formatCurrency(Number(row.amount || 0) - Number(row.prevYearAmount || 0));
+                    if (ctx.dataset.label === '前年実績') return '前年実績: ' + formatCurrency(row.prevYearAmount || 0);
                     return '件数: ' + Number(row.count || 0) + '件';
                   }
                   if (ctx.datasetIndex === 0) return '金額: ' + formatCurrency(row.amount || 0);
@@ -1531,20 +1544,36 @@
       if (!series.length) {
         summaryList.innerHTML = '<div class="empty">集計結果がありません。</div>';
       } else if (groupBy === 'month') {
-        summaryList.innerHTML = series.map((row) => {
+        summaryList.innerHTML = `
+          <div class="analysis-row head month">
+            <div>月</div>
+            <div class="num">実績</div>
+            <div class="num">予算</div>
+            <div class="num">差額</div>
+            <div class="num">前年差</div>
+          </div>
+        ` + series.map((row) => {
           const budgetGap = Number(row.budget || 0) - Number(row.amount || 0);
           const yoyGap = Number(row.amount || 0) - Number(row.prevYearAmount || 0);
           return `
-            <div class="analysis-row">
+            <div class="analysis-row month">
               <div class="name">${escapeHtml(row.label || row.key || '')}</div>
               <div class="num">${formatCurrency(row.amount || 0)}</div>
+              <div class="num">${formatCurrency(row.budget || 0)}</div>
               <div class="num">${formatCurrency(budgetGap)}</div>
               <div class="num">${formatCurrency(yoyGap)}</div>
             </div>
           `;
         }).join('');
       } else {
-        summaryList.innerHTML = series.slice(0, topN).map((row) => {
+        summaryList.innerHTML = `
+          <div class="analysis-row head">
+            <div>項目</div>
+            <div class="num">金額</div>
+            <div class="num">件数</div>
+            <div class="num">平均</div>
+          </div>
+        ` + series.slice(0, topN).map((row) => {
           const avg = Number(row.count || 0) ? Math.round(Number(row.amount || 0) / Number(row.count || 1)) : 0;
           return `
             <div class="analysis-row">
