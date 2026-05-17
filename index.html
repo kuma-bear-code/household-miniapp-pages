@@ -5,6 +5,7 @@
   <title>家計簿 ミニアプリ</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
   <style>
     :root {
       --bg: #f7f3ea;
@@ -434,6 +435,12 @@
       place-items: center;
     }
 
+    .chart-canvas {
+      width: 100%;
+      height: 280px;
+      display: block;
+    }
+
     .chart-wrap img { width: 100%; display: block; }
 
     .footer-note {
@@ -602,10 +609,11 @@
             <div class="insight-value" id="insightNegative">-</div>
           </div>
         </div>
-        <div class="chart-wrap" id="chartWrap">
-          <div class="empty" id="chartEmpty">グラフを読み込み中です。</div>
-          <img id="chartImage" class="hidden" alt="全体グラフ" />
-        </div>
+      <div class="chart-wrap" id="chartWrap">
+        <div class="empty" id="chartEmpty">グラフを読み込み中です。</div>
+        <canvas id="overallChart" class="chart-canvas hidden"></canvas>
+        <img id="chartImage" class="hidden" alt="全体グラフ" />
+      </div>
       </section>
     </div>
 
@@ -667,6 +675,7 @@
       breakdownHasMore: false,
       breakdownAllRows: [],
       summaryRows: [],
+      overallChart: null,
       summaryDeficitOnly: false,
       loading: false
     };
@@ -865,6 +874,7 @@
       $('insightNegative').textContent = negativeCount + '件';
       state.summaryRows = summary.rows.slice();
       renderSummaryRows();
+      renderOverallChart();
     }
 
     function renderSummaryRows() {
@@ -1011,15 +1021,92 @@
     function renderChartFromB64(data) {
       const img = $('chartImage');
       const empty = $('chartEmpty');
+      const canvas = $('overallChart');
       if (!data || !data.b64) {
         img.classList.add('hidden');
+        canvas.classList.add('hidden');
         empty.classList.remove('hidden');
         empty.textContent = 'グラフを表示できませんでした。';
         return;
       }
+      canvas.classList.add('hidden');
       img.src = 'data:' + (data.mimeType || 'image/jpeg') + ';base64,' + data.b64;
       img.classList.remove('hidden');
       empty.classList.add('hidden');
+    }
+
+    function destroyOverallChart() {
+      if (state.overallChart) {
+        state.overallChart.destroy();
+        state.overallChart = null;
+      }
+    }
+
+    function overallRowsForView() {
+      const rows = (state.summaryRows || []).slice();
+      rows.sort((a, b) => Number(b.spend || 0) - Number(a.spend || 0));
+      return rows.slice(0, 10);
+    }
+
+    function renderOverallChart() {
+      const canvas = $('overallChart');
+      const empty = $('chartEmpty');
+      const img = $('chartImage');
+      if (!canvas || typeof Chart === 'undefined') return false;
+
+      const rows = overallRowsForView();
+      destroyOverallChart();
+
+      if (!rows.length) {
+        canvas.classList.add('hidden');
+        img.classList.add('hidden');
+        empty.classList.remove('hidden');
+        empty.textContent = '表示できるグラフがありません。';
+        return true;
+      }
+
+      const labels = rows.map((row) => String(row.name || ''));
+      const budgets = rows.map((row) => Number(row.budget || 0));
+      const spends = rows.map((row) => Number(row.spend || 0));
+      const remains = rows.map((row) => Number(row.remain || 0));
+
+      canvas.classList.remove('hidden');
+      img.classList.add('hidden');
+      empty.classList.add('hidden');
+
+      state.overallChart = new Chart(canvas.getContext('2d'), {
+        type: 'bar',
+        data: {
+          labels,
+          datasets: [
+            { label: '予算', data: budgets, backgroundColor: '#5d74c133', borderColor: '#5d74c1', borderWidth: 1 },
+            { label: '支出', data: spends, backgroundColor: '#0f8b6d66', borderColor: '#0f8b6d', borderWidth: 1 },
+            { label: '残額', data: remains, backgroundColor: '#f28f3b55', borderColor: '#d98c30', borderWidth: 1 }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          interaction: { mode: 'index', intersect: false },
+          plugins: {
+            legend: { display: true, position: 'bottom' },
+            tooltip: {
+              callbacks: {
+                label: (ctx) => `${ctx.dataset.label}: ${formatCurrency(ctx.parsed.y || 0)}`
+              }
+            }
+          },
+          scales: {
+            y: {
+              beginAtZero: true,
+              ticks: {
+                callback: (value) => Number(value || 0).toLocaleString('ja-JP')
+              }
+            }
+          }
+        }
+      });
+      return true;
     }
 
     async function loadSummary() {
@@ -1049,8 +1136,10 @@
     }
 
     async function loadChart() {
-      const data = await apiGet('chart_overall_b64', { month: state.month });
-      renderChartFromB64(data);
+      if (!renderOverallChart()) {
+        const data = await apiGet('chart_overall_b64', { month: state.month });
+        renderChartFromB64(data);
+      }
     }
 
     async function reloadAll() {
