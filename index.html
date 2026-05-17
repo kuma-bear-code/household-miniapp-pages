@@ -65,6 +65,14 @@
       font-size: 14px;
     }
 
+    .hero-meta {
+      margin-top: 14px;
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+
     .chip {
       display: inline-flex;
       align-items: center;
@@ -243,6 +251,16 @@
       background: rgba(255, 244, 228, 1);
     }
 
+    .summary-row.summary-clickable::after {
+      content: "›";
+      justify-self: end;
+      color: var(--accent);
+      font-size: 22px;
+      line-height: 1;
+      font-weight: 700;
+      margin-left: 4px;
+    }
+
     .summary-row.head {
       background: transparent;
       border: 0;
@@ -258,7 +276,7 @@
 
     .entry {
       display: grid;
-      grid-template-columns: 68px minmax(0, 1fr) 92px;
+      grid-template-columns: 76px minmax(0, 1fr) 96px;
       gap: 10px;
       align-items: start;
       border: 1px solid var(--line);
@@ -267,9 +285,22 @@
       background: rgba(255, 255, 255, 0.8);
     }
 
+    .entry > div:first-child {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 32px;
+      padding: 0 10px;
+      border-radius: 999px;
+      background: rgba(15, 139, 109, 0.12);
+      color: var(--accent);
+      font-weight: 700;
+      font-variant-numeric: tabular-nums;
+    }
+
     .entry-item { font-weight: 700; line-height: 1.35; word-break: break-word; }
     .entry-meta { margin-top: 4px; color: var(--muted); font-size: 12px; line-height: 1.35; }
-    .entry-amount { text-align: right; font-weight: 700; font-variant-numeric: tabular-nums; }
+    .entry-amount { text-align: right; font-weight: 700; font-variant-numeric: tabular-nums; color: #1f1a16; }
 
     .empty {
       border: 1px dashed var(--line);
@@ -370,6 +401,11 @@
         <div>
           <h1>家計簿 ミニアプリ</h1>
           <p id="heroSub">LINEログインを確認してデータを読み込みます。</p>
+          <div class="hero-meta">
+            <span class="chip">月次サマリー</span>
+            <span class="chip">項目ジャンプ</span>
+            <span class="chip">明細フィルタ</span>
+          </div>
         </div>
         <div class="chip" id="loginChip">LIFF接続中</div>
       </div>
