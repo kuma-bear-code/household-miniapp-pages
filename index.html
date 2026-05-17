@@ -95,6 +95,16 @@
       font-weight: 700;
     }
 
+    .home-only {
+      display: block;
+    }
+
+    body.home-gateway .app > .grid,
+    body.home-gateway #analysisPanel,
+    body.home-gateway #qaPanel {
+      display: none;
+    }
+
     .chip {
       display: inline-flex;
       align-items: center;
@@ -667,7 +677,7 @@
     }
   </style>
 </head>
-  <body>
+  <body class="home-gateway">
   <div class="app">
     <section class="hero">
       <div class="hero-top">
