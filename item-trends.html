@@ -322,8 +322,8 @@
 
     async function boot() {
       populateYears();
-      $('loginChip').textContent = liff.isInClient && liff.isInClient() ? 'LINEアプリ内' : 'ブラウザー';
       await initLiffWithTimeout(10000);
+      $('loginChip').textContent = liff.isInClient() ? 'LINEアプリ内' : 'ブラウザー';
       if (!liff.isLoggedIn()) {
         liff.login({ redirectUri: location.href });
         return;
