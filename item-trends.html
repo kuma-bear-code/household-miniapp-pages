@@ -83,7 +83,7 @@
     }
     .item-head { display: flex; justify-content: space-between; align-items: start; gap: 8px; }
     .item-name { font-size: 15px; line-height: 1.35; font-weight: 800; }
-    .item-total { text-align: right; color: var(--muted); font-size: 11px; line-height: 1.5; white-space: nowrap; }
+    .item-total { text-align: right; color: var(--muted); font-size: 11px; line-height: 1.45; white-space: pre-line; }
     .chart-wrap { position: relative; height: 245px; margin-top: 10px; }
     .empty {
       grid-column: 1 / -1; border: 1px dashed var(--line); border-radius: 14px;
@@ -132,7 +132,7 @@
     </section>
 
     <section id="chartsGrid" class="charts-grid" aria-live="polite"></section>
-    <p class="footer-note">緑の棒が月ごとの実績、青い線が各月の予算です。予算は各月の家計簿シートから取得します。該当月のシートがない場合、予算は0円として表示されます。</p>
+    <p class="footer-note">緑の棒が月ごとの実績、青い線が各月の予算、オレンジの破線が実績の月平均です。今年は前月まで、過去の年は12か月の平均で、支出のない月も0円として含めます。予算は各月の家計簿シートから取得し、該当月のシートがない場合は0円として表示します。</p>
   </main>
 
   <script>
@@ -182,7 +182,16 @@
       state.charts = [];
     }
 
-    function makeCard(item, months) {
+    function getAverageMonthCount(year) {
+      const now = new Date();
+      const selectedYear = Number(year);
+      if (selectedYear === now.getFullYear()) {
+        return now.getMonth();
+      }
+      return 12;
+    }
+
+    function makeCard(item, months, averageInfo) {
       const card = document.createElement('article');
       card.className = 'item-card';
 
@@ -193,7 +202,10 @@
       title.textContent = item.label || item.key || '未設定';
       const total = document.createElement('div');
       total.className = 'item-total';
-      total.textContent = '実績 ' + formatCurrency(item.total) + ' / 予算 ' + formatCurrency(item.budgetTotal);
+      total.textContent = '実績 ' + formatCurrency(item.total) + ' / 予算 ' + formatCurrency(item.budgetTotal) +
+        '\n' + (averageInfo.monthCount > 0
+          ? averageInfo.label + ' ' + formatCurrency(averageInfo.amount)
+          : '前月までの実績なし');
       head.append(title, total);
 
       const wrap = document.createElement('div');
@@ -205,35 +217,52 @@
       card.append(head, wrap);
 
       const itemMonths = item.months || [];
+      const datasets = [
+        {
+          type: 'bar',
+          label: '実績',
+          data: itemMonths.map((month) => Number(month.amount || 0)),
+          backgroundColor: '#0f8b6d66',
+          borderColor: '#0f8b6d',
+          borderWidth: 1,
+          borderRadius: 4,
+          maxBarThickness: 24
+        },
+        {
+          type: 'line',
+          label: '予算',
+          data: itemMonths.map((month) => Number(month.budget || 0)),
+          borderColor: '#5d74c1',
+          backgroundColor: '#5d74c122',
+          pointBackgroundColor: '#5d74c1',
+          pointRadius: 2.5,
+          pointHoverRadius: 4,
+          borderWidth: 2,
+          tension: 0.2,
+          fill: false
+        }
+      ];
+      if (averageInfo.monthCount > 0) {
+        datasets.push({
+          type: 'line',
+          label: averageInfo.label,
+          data: months.map(() => averageInfo.amount),
+          borderColor: '#e08a13',
+          backgroundColor: '#e08a1322',
+          pointRadius: 0,
+          pointHoverRadius: 3,
+          borderWidth: 2,
+          borderDash: [6, 4],
+          tension: 0,
+          fill: false
+        });
+      }
+
       const chart = new Chart(canvas.getContext('2d'), {
         type: 'bar',
         data: {
           labels: months.map((month) => month.label || month.key),
-          datasets: [
-            {
-              type: 'bar',
-              label: '実績',
-              data: itemMonths.map((month) => Number(month.amount || 0)),
-              backgroundColor: '#0f8b6d66',
-              borderColor: '#0f8b6d',
-              borderWidth: 1,
-              borderRadius: 4,
-              maxBarThickness: 24
-            },
-            {
-              type: 'line',
-              label: '予算',
-              data: itemMonths.map((month) => Number(month.budget || 0)),
-              borderColor: '#5d74c1',
-              backgroundColor: '#5d74c122',
-              pointBackgroundColor: '#5d74c1',
-              pointRadius: 2.5,
-              pointHoverRadius: 4,
-              borderWidth: 2,
-              tension: 0.2,
-              fill: false
-            }
-          ]
+          datasets: datasets
         },
         options: {
           responsive: true,
@@ -274,7 +303,24 @@
       }
 
       const monthLabels = data.months || [];
-      items.forEach((item) => grid.appendChild(makeCard(item, monthLabels)));
+      const averageMonthCount = getAverageMonthCount(data.year);
+      const averageLabel = Number(data.year) === new Date().getFullYear()
+        ? '前月までの月平均'
+        : '年間月平均';
+      items.forEach((item) => {
+        const itemMonths = item.months || [];
+        const averageAmount = averageMonthCount
+          ? Math.round(itemMonths.slice(0, averageMonthCount).reduce(
+              (sum, month) => sum + Number(month.amount || 0), 0
+            ) / averageMonthCount)
+          : 0;
+        const averageInfo = {
+          monthCount: averageMonthCount,
+          amount: averageAmount,
+          label: averageLabel
+        };
+        grid.appendChild(makeCard(item, monthLabels, averageInfo));
+      });
       const totalActual = items.reduce((sum, item) => sum + Number(item.total || 0), 0);
       const totalBudget = items.reduce((sum, item) => sum + Number(item.budgetTotal || 0), 0);
       $('summary').textContent = data.year + '年 / ' + items.length + '項目 / 年間実績 ' +
