@@ -44,6 +44,23 @@
     .value-card { min-width: 0; padding: 14px 16px; border: 1px solid var(--line); border-radius: 16px; background: #fffaf2; }
     .value-label { color: var(--muted); font-size: 12px; font-weight: 700; }
     .value { margin-top: 7px; font-size: clamp(25px, 6vw, 36px); font-weight: 800; font-variant-numeric: tabular-nums; }
+    .spending-section { margin-top: 22px; padding-top: 18px; border-top: 1px solid var(--line); }
+    .spending-totals { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin-top: 12px; }
+    .spending-total { min-width: 0; padding: 13px 15px; border: 1px solid var(--line); border-radius: 15px; background: #fffaf2; }
+    .spending-period { color: var(--muted); font-size: 12px; font-weight: 700; }
+    .spending-amount { display: block; margin-top: 5px; font-size: clamp(21px, 5vw, 29px); font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+    .spending-count { display: block; margin-top: 3px; color: var(--muted); font-size: 12px; }
+    .category-list { display: grid; gap: 9px; margin-top: 12px; }
+    .category-row { padding: 12px 14px; border: 1px solid var(--line); border-radius: 14px; background: white; }
+    .category-head, .category-meta { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; }
+    .category-head { font-size: 14px; }
+    .category-current { font-variant-numeric: tabular-nums; white-space: nowrap; }
+    .category-meter { height: 7px; margin-top: 8px; overflow: hidden; border-radius: 99px; background: #eee7db; }
+    .category-meter-fill { height: 100%; border-radius: inherit; background: var(--accent); }
+    .category-meta { margin-top: 7px; color: var(--muted); font-size: 12px; font-variant-numeric: tabular-nums; }
+    .category-change { white-space: nowrap; }
+    .category-change.increase { color: var(--danger); }
+    .category-change.decrease { color: var(--accent); }
     .chart-wrap { min-height: 300px; margin-top: 14px; padding: 12px; border: 1px solid var(--line); border-radius: 16px; background: white; }
     .chart { width: 100%; height: 340px; }
     .empty { display: grid; min-height: 270px; place-items: center; padding: 18px; color: var(--muted); text-align: center; line-height: 1.7; }
@@ -57,7 +74,7 @@
     .history { display: grid; gap: 8px; margin-top: 14px; }
     .history-row { display: grid; grid-template-columns: 1fr 1.5fr 1.5fr; gap: 10px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 12px; font-variant-numeric: tabular-nums; }
     .hidden { display: none !important; }
-    @media (max-width: 560px) { .app { width: calc(100vw - 16px); padding-top: 8px; } .hero { padding: 17px; } .chart { height: 390px; } .chart-wrap { min-height: 320px; } .value-grid { grid-template-columns: 1fr; } .history-row { grid-template-columns: 1fr; gap: 3px; } }
+    @media (max-width: 560px) { .app { width: calc(100vw - 16px); padding-top: 8px; } .hero { padding: 17px; } .chart { height: 390px; } .chart-wrap { min-height: 320px; } .value-grid { grid-template-columns: 1fr; } .spending-totals { gap: 7px; } .spending-total { padding: 11px; } .category-row { padding: 11px; } .history-row { grid-template-columns: 1fr; gap: 3px; } }
   </style>
 </head>
 <body>
@@ -95,6 +112,25 @@
           <p class="sub" id="currentInvestmentDate"></p>
         </div>
       </div>
+      <section class="spending-section" aria-labelledby="spendingTitle">
+        <h2 id="spendingTitle">今月・前月に使ったお金</h2>
+        <p class="sub">個人家計簿の明細から支出を大分類別に集計しています。</p>
+        <div class="spending-totals">
+          <div class="spending-total">
+            <span class="spending-period" id="currentSpendingMonth">今月</span>
+            <strong class="spending-amount" id="currentSpendingTotal">—</strong>
+            <span class="spending-count" id="currentSpendingCount"></span>
+          </div>
+          <div class="spending-total">
+            <span class="spending-period" id="previousSpendingMonth">前月</span>
+            <strong class="spending-amount" id="previousSpendingTotal">—</strong>
+            <span class="spending-count" id="previousSpendingCount"></span>
+          </div>
+        </div>
+        <div class="empty hidden" id="spendingEmptyState">今月と前月の支出記録はありません。</div>
+        <div class="category-list" id="spendingCategoryList" aria-live="polite"></div>
+        <p class="status" id="spendingStatus" role="status" aria-live="polite"></p>
+      </section>
       <h2 style="margin-top:20px">生活資産の推移</h2>
       <div class="chart-wrap">
         <div class="empty" id="cashEmptyState">生活資産の推移を読み込みます。</div>
@@ -127,7 +163,16 @@
     const $ = (id) => document.getElementById(id);
 
     function money(value) {
-      return Number(value || 0).toLocaleString('ja-JP') + '円';
+      return Number(value || 0).toLocaleString('ja-JP', { maximumFractionDigits: 0 }) + '円';
+    }
+
+    function monthLabel(monthKey) {
+      return monthKey.slice(0, 4) + '年' + Number(monthKey.slice(4, 6)) + '月';
+    }
+
+    function signedMoney(value) {
+      const amount = Number(value || 0);
+      return (amount > 0 ? '+' : amount < 0 ? '−' : '') + money(Math.abs(amount));
     }
 
     function setStatus(message, isError) {
@@ -136,11 +181,12 @@
       box.className = 'status' + (isError ? ' error' : '');
     }
 
-    async function apiGet(op) {
+    async function apiGet(op, params = {}) {
       const url = new URL(API_BASE_URL);
       url.searchParams.set('action', 'api');
       url.searchParams.set('op', op);
       url.searchParams.set('access_token', state.accessToken);
+      Object.entries(params).forEach(([key, value]) => url.searchParams.set(key, String(value)));
       const response = await fetch(url.toString(), { method: 'GET', cache: 'no-store' });
       const data = await response.json();
       if (!data.ok) throw new Error(data.error || 'APIエラー');
@@ -238,9 +284,61 @@
             tooltip: { callbacks: { label: (context) => label + ': ' + money(context.parsed.y) } }
           },
           scales: {
-            y: { ticks: { callback: (value) => Number(value || 0).toLocaleString('ja-JP') + '円' } }
+            y: { ticks: { callback: (value) => money(value) } }
           }
         }
+      });
+    }
+
+    function renderSpending(data) {
+      $('currentSpendingMonth').textContent = '今月 · ' + monthLabel(data.currentMonth);
+      $('previousSpendingMonth').textContent = '前月 · ' + monthLabel(data.previousMonth);
+      $('currentSpendingTotal').textContent = money(data.currentTotal);
+      $('previousSpendingTotal').textContent = money(data.previousTotal);
+      $('currentSpendingCount').textContent = Number(data.currentCount || 0) + '件の支出';
+      $('previousSpendingCount').textContent = Number(data.previousCount || 0) + '件の支出';
+
+      const list = $('spendingCategoryList');
+      const empty = $('spendingEmptyState');
+      list.replaceChildren();
+      const categories = data.categories || [];
+      if (!categories.length) {
+        empty.classList.remove('hidden');
+        return;
+      }
+      empty.classList.add('hidden');
+      const maxAmount = Math.max(1, ...categories.map((item) => Number(item.currentAmount || 0)));
+      categories.forEach((item) => {
+        const row = document.createElement('article');
+        row.className = 'category-row';
+        const head = document.createElement('div');
+        head.className = 'category-head';
+        const name = document.createElement('strong');
+        name.textContent = item.category;
+        const current = document.createElement('strong');
+        current.className = 'category-current';
+        current.textContent = money(item.currentAmount);
+        head.append(name, current);
+
+        const meter = document.createElement('div');
+        meter.className = 'category-meter';
+        meter.setAttribute('aria-label', '今月のカテゴリ内訳');
+        const fill = document.createElement('div');
+        fill.className = 'category-meter-fill';
+        fill.style.width = Math.max(0, Math.min(100, Number(item.currentAmount || 0) / maxAmount * 100)) + '%';
+        meter.appendChild(fill);
+
+        const meta = document.createElement('div');
+        meta.className = 'category-meta';
+        const previous = document.createElement('span');
+        previous.textContent = '前月 ' + money(item.previousAmount);
+        const change = document.createElement('span');
+        change.className = 'category-change' + (item.difference > 0 ? ' increase' : item.difference < 0 ? ' decrease' : '');
+        change.textContent = '増減 ' + signedMoney(item.difference);
+        meta.append(previous, change);
+
+        row.append(head, meter, meta);
+        list.appendChild(row);
       });
     }
 
@@ -253,6 +351,13 @@
       renderSeriesChart('cash', 'cashAmount', '生活資産（投資除く）', '#0f8b6d', 'まだ生活資産の記録がありません。残高照合を更新して、下のボタンから今日の値を記録してください。');
       renderSeriesChart('investment', 'investmentAmount', '投資口座資産', '#d88427', '投資口座の履歴が見つかりません。ポートフォリオの日次記録を確認してください。');
       renderHistory(state.snapshots);
+      try {
+        const spending = await apiGet('private_spending_summary');
+        renderSpending(spending);
+        $('spendingStatus').textContent = '';
+      } catch (error) {
+        $('spendingStatus').textContent = '支出内訳を読み込めませんでした。更新して再度お試しください。';
+      }
       const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Tokyo', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
       const recordedToday = state.snapshots.some((row) => row.date === today && row.cashAmount != null);
       $('recordBtn').disabled = recordedToday;
