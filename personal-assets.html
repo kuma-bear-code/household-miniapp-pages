@@ -1,0 +1,310 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="robots" content="noindex,nofollow" />
+  <title>個人資産推移</title>
+  <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <style>
+    :root {
+      --bg: #f7f3ea;
+      --panel: rgba(255, 255, 255, .94);
+      --ink: #1f1a16;
+      --muted: #6e6258;
+      --line: #dfd2bf;
+      --accent: #0f8b6d;
+      --danger: #9b3329;
+      --shadow: 0 14px 36px rgba(78, 55, 28, .1);
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      color: var(--ink);
+      font-family: "Hiragino Sans", "Yu Gothic", sans-serif;
+      background: radial-gradient(circle at top left, rgba(242,143,59,.14), transparent 30%),
+        linear-gradient(180deg, #faf5ec 0%, #f3ede2 100%);
+    }
+    .app { width: min(900px, calc(100vw - 24px)); margin: 0 auto; padding: 16px 0 28px; }
+    .hero, .panel { border-radius: 20px; box-shadow: var(--shadow); }
+    .hero { padding: 20px; color: white; background: linear-gradient(135deg, #0f8b6d, #5d74c1); }
+    .hero-top, .panel-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+    h1 { margin: 0; font-size: 25px; }
+    h2 { margin: 0; font-size: 18px; }
+    .hero p, .sub { margin: 6px 0 0; font-size: 13px; line-height: 1.6; }
+    .hero p { color: rgba(255,255,255,.88); }
+    .chip { border: 1px solid rgba(255,255,255,.3); border-radius: 999px; padding: 7px 11px; font-size: 12px; }
+    .page-links { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
+    .page-link { display: inline-flex; align-items: center; min-height: 34px; padding: 0 12px; border-radius: 999px; color: white; text-decoration: none; font-size: 13px; font-weight: 700; background: rgba(255,255,255,.16); border: 1px solid rgba(255,255,255,.24); }
+    .panel { margin-top: 14px; padding: 18px; background: var(--panel); border: 1px solid rgba(255,255,255,.8); }
+    .sub { color: var(--muted); }
+    .value-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin-top: 14px; }
+    .value-card { min-width: 0; padding: 14px 16px; border: 1px solid var(--line); border-radius: 16px; background: #fffaf2; }
+    .value-label { color: var(--muted); font-size: 12px; font-weight: 700; }
+    .value { margin-top: 7px; font-size: clamp(25px, 6vw, 36px); font-weight: 800; font-variant-numeric: tabular-nums; }
+    .chart-wrap { min-height: 300px; margin-top: 14px; padding: 12px; border: 1px solid var(--line); border-radius: 16px; background: white; }
+    .chart { width: 100%; height: 340px; }
+    .empty { display: grid; min-height: 270px; place-items: center; padding: 18px; color: var(--muted); text-align: center; line-height: 1.7; }
+    .button-row { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 14px; }
+    button { min-height: 44px; padding: 0 16px; border: 0; border-radius: 12px; font-size: 14px; font-weight: 700; cursor: pointer; }
+    button:disabled { opacity: .55; cursor: wait; }
+    .primary { color: white; background: var(--accent); }
+    .secondary { color: var(--ink); background: #ebe2d3; }
+    .status { margin-top: 12px; min-height: 22px; color: var(--muted); font-size: 13px; white-space: pre-wrap; }
+    .status.error { color: var(--danger); }
+    .history { display: grid; gap: 8px; margin-top: 14px; }
+    .history-row { display: grid; grid-template-columns: 1fr 1.5fr 1.5fr; gap: 10px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 12px; font-variant-numeric: tabular-nums; }
+    .hidden { display: none !important; }
+    @media (max-width: 560px) { .app { width: calc(100vw - 16px); padding-top: 8px; } .hero { padding: 17px; } .chart { height: 390px; } .chart-wrap { min-height: 320px; } .value-grid { grid-template-columns: 1fr; } .history-row { grid-template-columns: 1fr; gap: 3px; } }
+  </style>
+</head>
+<body>
+  <main class="app">
+    <section class="hero">
+      <div class="hero-top">
+        <div>
+          <h1>個人資産推移</h1>
+          <p>本人のLINEアカウントだけが、個人家計簿の残高を確認できます。</p>
+        </div>
+        <span class="chip" id="loginChip">LINE認証中</span>
+      </div>
+      <nav class="page-links" aria-label="ページ">
+        <a class="page-link" href="index.html">ホーム</a>
+        <a class="page-link" href="analysis.html">月次推移</a>
+        <a class="page-link" href="item-trends.html">項目別推移</a>
+        <a class="page-link" href="qa.html">家計に聞く</a>
+        <a class="page-link" href="personal-assets.html" aria-current="page">個人資産</a>
+      </nav>
+    </section>
+
+    <section class="panel hidden" id="assetsPanel">
+      <div class="panel-head">
+        <h2>生活資産と投資口座</h2>
+        <button class="secondary" type="button" id="reloadBtn">更新</button>
+      </div>
+      <div class="value-grid">
+        <div class="value-card">
+          <div class="value-label">生活資産（投資口座を除く・現在値）</div>
+          <div class="value" id="currentCashValue">—</div>
+        </div>
+        <div class="value-card">
+          <div class="value-label">証券口座の資産（株・投信・口座内現金）</div>
+          <div class="value" id="currentInvestmentValue">未記録</div>
+          <p class="sub" id="currentInvestmentDate"></p>
+        </div>
+      </div>
+      <h2 style="margin-top:20px">生活資産の推移</h2>
+      <div class="chart-wrap">
+        <div class="empty" id="cashEmptyState">生活資産の推移を読み込みます。</div>
+        <canvas class="chart hidden" id="cashChart" aria-label="生活資産の推移"></canvas>
+      </div>
+      <h2 style="margin-top:20px">投資口座の推移</h2>
+      <div class="chart-wrap">
+        <div class="empty" id="investmentEmptyState">投資口座の推移を読み込みます。</div>
+        <canvas class="chart hidden" id="investmentChart" aria-label="投資口座資産の推移"></canvas>
+      </div>
+      <div class="button-row">
+        <button class="primary" type="button" id="recordBtn">生活資産を今日の記録として保存</button>
+      </div>
+      <p class="sub">記録前に個人家計簿の「残高照合」を更新してください。生活資産は1日1件で記録し、同じ日の再記録では上書きしません。</p>
+      <p class="sub">証券口座の資産は「株管理_ポートフォリオ」の日次記録から読み込みます。生活資産と投資口座は別のグラフで表示します。</p>
+      <div class="status" id="statusBox" role="status" aria-live="polite"></div>
+      <div class="history" id="historyList"></div>
+    </section>
+    <section class="panel" id="deniedPanel">
+      <h2>LINE本人確認</h2>
+      <p class="sub" id="deniedMessage">この画面を利用できるか確認しています。</p>
+    </section>
+  </main>
+  <iframe id="postTarget" name="postTarget" class="hidden" title="送信先"></iframe>
+
+  <script>
+    const LIFF_ID = '2008812269-var864Dv';
+    const API_BASE_URL = 'https://script.google.com/macros/s/AKfycbwCRPyhJLCWkw_F-pm177DGUgq2R_sTVPZLzXuotaJZ6B6R53vDBVpuKXUfYb_N6P_2Eg/exec';
+    const state = { accessToken: '', charts: { cash: null, investment: null }, snapshots: [] };
+    const $ = (id) => document.getElementById(id);
+
+    function money(value) {
+      return Number(value || 0).toLocaleString('ja-JP') + '円';
+    }
+
+    function setStatus(message, isError) {
+      const box = $('statusBox');
+      box.textContent = message || '';
+      box.className = 'status' + (isError ? ' error' : '');
+    }
+
+    async function apiGet(op) {
+      const url = new URL(API_BASE_URL);
+      url.searchParams.set('action', 'api');
+      url.searchParams.set('op', op);
+      url.searchParams.set('access_token', state.accessToken);
+      const response = await fetch(url.toString(), { method: 'GET', cache: 'no-store' });
+      const data = await response.json();
+      if (!data.ok) throw new Error(data.error || 'APIエラー');
+      return data;
+    }
+
+    async function submitRecord() {
+      const form = document.createElement('form');
+      const url = new URL(API_BASE_URL);
+      url.searchParams.set('action', 'api');
+      form.method = 'POST';
+      form.action = url.toString();
+      form.target = 'postTarget';
+      form.style.display = 'none';
+      [['op', 'private_asset_record'], ['access_token', state.accessToken]].forEach(([name, value]) => {
+        const input = document.createElement('input');
+        input.type = 'hidden';
+        input.name = name;
+        input.value = value;
+        form.appendChild(input);
+      });
+      const frame = $('postTarget');
+      const completed = new Promise((resolve) => {
+        let done = false;
+        const finish = () => {
+          if (done) return;
+          done = true;
+          clearTimeout(timer);
+          resolve();
+        };
+        frame.addEventListener('load', finish, { once: true });
+        const timer = setTimeout(finish, 3500);
+      });
+      document.body.appendChild(form);
+      form.submit();
+      form.remove();
+      await completed;
+    }
+
+    function renderHistory(snapshots) {
+      const list = $('historyList');
+      list.replaceChildren();
+      snapshots.slice(-12).reverse().forEach((snapshot) => {
+        const row = document.createElement('div');
+        row.className = 'history-row';
+        const date = document.createElement('span');
+        const cash = document.createElement('span');
+        const investment = document.createElement('span');
+        date.textContent = snapshot.date.replaceAll('-', '/');
+        cash.textContent = snapshot.cashAmount == null ? '生活資産: 未記録' : '生活資産: ' + money(snapshot.cashAmount);
+        investment.textContent = snapshot.investmentAmount == null ? '証券口座: 未記録' : '証券口座: ' + money(snapshot.investmentAmount);
+        row.append(date, cash, investment);
+        list.appendChild(row);
+      });
+    }
+
+    function renderSeriesChart(series, key, label, color, emptyText) {
+      const canvas = $(series === 'cash' ? 'cashChart' : 'investmentChart');
+      const empty = $(series === 'cash' ? 'cashEmptyState' : 'investmentEmptyState');
+      const points = state.snapshots.filter((row) => row[key] != null);
+      if (state.charts[series]) {
+        state.charts[series].destroy();
+        state.charts[series] = null;
+      }
+      if (!points.length) {
+        canvas.classList.add('hidden');
+        empty.classList.remove('hidden');
+        empty.textContent = emptyText;
+        return;
+      }
+      canvas.classList.remove('hidden');
+      empty.classList.add('hidden');
+      state.charts[series] = new Chart(canvas.getContext('2d'), {
+        type: 'line',
+        data: {
+          labels: points.map((row) => row.date.replaceAll('-', '/')),
+          datasets: [{
+            label,
+            data: points.map((row) => Number(row[key])),
+            borderColor: color,
+            backgroundColor: color + '22',
+            pointBackgroundColor: color,
+            pointRadius: 5,
+            borderWidth: 3,
+            tension: .2,
+            fill: false
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          interaction: { mode: 'index', intersect: false },
+          plugins: {
+            legend: { display: true, position: 'bottom' },
+            tooltip: { callbacks: { label: (context) => label + ': ' + money(context.parsed.y) } }
+          },
+          scales: {
+            y: { ticks: { callback: (value) => Number(value || 0).toLocaleString('ja-JP') + '円' } }
+          }
+        }
+      });
+    }
+
+    async function loadTrend() {
+      const data = await apiGet('private_assets_trend');
+      state.snapshots = data.snapshots || [];
+      $('currentCashValue').textContent = money(data.currentCashAmount);
+      $('currentInvestmentValue').textContent = data.currentInvestmentAmount == null ? '未記録' : money(data.currentInvestmentAmount);
+      $('currentInvestmentDate').textContent = data.currentInvestmentDate ? data.currentInvestmentDate.replaceAll('-', '/') + ' 時点' : 'まだ記録がありません';
+      renderSeriesChart('cash', 'cashAmount', '生活資産（投資除く）', '#0f8b6d', 'まだ生活資産の記録がありません。残高照合を更新して、下のボタンから今日の値を記録してください。');
+      renderSeriesChart('investment', 'investmentAmount', '投資口座資産', '#d88427', '投資口座の履歴が見つかりません。ポートフォリオの日次記録を確認してください。');
+      renderHistory(state.snapshots);
+      const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Tokyo', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
+      const recordedToday = state.snapshots.some((row) => row.date === today && row.cashAmount != null);
+      $('recordBtn').disabled = recordedToday;
+      $('recordBtn').textContent = recordedToday ? '本日の記録済み' : '生活資産を今日の記録として保存';
+    }
+
+    async function recordSnapshot() {
+      $('recordBtn').disabled = true;
+      setStatus('今日の残高を記録しています。', false);
+      try {
+        await submitRecord();
+        for (let attempt = 0; attempt < 7; attempt++) {
+          await loadTrend();
+          const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Tokyo', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
+          if (state.snapshots.some((row) => row.date === today && row.cashAmount != null)) {
+            setStatus('今日の記録を保存しました。', false);
+            return;
+          }
+          await new Promise((resolve) => setTimeout(resolve, 450));
+        }
+        throw new Error('記録を確認できませんでした。画面を更新して状態を確認してください。');
+      } catch (error) {
+        setStatus(String(error.message || error), true);
+        $('recordBtn').disabled = false;
+      }
+    }
+
+    async function boot() {
+      try {
+        await liff.init({ liffId: LIFF_ID });
+        $('loginChip').textContent = liff.isInClient() ? 'LINEアプリ内' : 'ブラウザー';
+        if (!liff.isLoggedIn()) {
+          liff.login({ redirectUri: location.href });
+          return;
+        }
+        state.accessToken = liff.getAccessToken();
+        const access = await apiGet('private_asset_access');
+        if (!access.available) throw new Error('この画面は利用できません。');
+        $('loginChip').textContent = '本人確認済み';
+        $('deniedPanel').classList.add('hidden');
+        $('assetsPanel').classList.remove('hidden');
+        $('recordBtn').addEventListener('click', recordSnapshot);
+        $('reloadBtn').addEventListener('click', () => loadTrend().catch((error) => setStatus(String(error.message || error), true)));
+        await loadTrend();
+      } catch (error) {
+        $('assetsPanel').classList.add('hidden');
+        $('deniedPanel').classList.remove('hidden');
+        $('deniedMessage').textContent = 'この画面を利用できません。共有家計簿のホームに戻ってください。';
+      }
+    }
+
+    document.addEventListener('DOMContentLoaded', boot);
+  </script>
+</body>
+</html>

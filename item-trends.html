@@ -113,6 +113,7 @@
             <a class="page-link" href="analysis.html">月次推移</a>
             <a class="page-link" href="item-trends.html">項目別推移</a>
             <a class="page-link" href="qa.html">家計に聞く</a>
+            <a class="page-link" href="personal-assets.html" data-private-asset-link style="display:none">個人資産</a>
           </nav>
         </div>
         <span class="chip" id="loginChip">LINE接続中</span>
@@ -137,7 +138,7 @@
 
   <script>
     const LIFF_ID = '2008812269-var864Dv';
-    const API_BASE_URL = 'https://script.google.com/macros/s/AKfycbybumOZE5YTic3zBnF3KW93UlSetzHTEben4_UtwugKMMagqcH9aJYIzsW10kd5hIwe/exec';
+    const API_BASE_URL = 'https://script.google.com/macros/s/AKfycbwCRPyhJLCWkw_F-pm177DGUgq2R_sTVPZLzXuotaJZ6B6R53vDBVpuKXUfYb_N6P_2Eg/exec';
     const state = { accessToken: '', charts: [], loading: false };
     const $ = (id) => document.getElementById(id);
 
@@ -175,6 +176,19 @@
       const data = await response.json();
       if (!data.ok) throw new Error(data.error || 'APIエラー');
       return data;
+    }
+
+    async function revealPrivateAssetsLink() {
+      try {
+        const access = await apiGet('private_asset_access');
+        if (access.available) {
+          document.querySelectorAll('[data-private-asset-link]').forEach((link) => {
+            link.style.display = 'inline-flex';
+          });
+        }
+      } catch (error) {
+        // 古いバックエンドや非所有者ではリンクを表示しない。
+      }
     }
 
     function destroyCharts() {
@@ -376,6 +390,7 @@
       }
       state.accessToken = liff.getAccessToken();
       await apiGet('whoami');
+      await revealPrivateAssetsLink();
       $('loginChip').textContent = 'LINE認証済み';
       $('yearSelect').addEventListener('change', loadTrends);
       $('reloadBtn').addEventListener('click', loadTrends);
