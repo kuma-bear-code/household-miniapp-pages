@@ -1,0 +1,347 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8" />
+  <title>項目別年間推移 | 家計簿 ミニアプリ</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <style>
+    :root {
+      --bg: #f7f3ea;
+      --panel: rgba(255, 255, 255, 0.92);
+      --panel-strong: #fffaf2;
+      --ink: #1f1a16;
+      --muted: #6e6258;
+      --line: #dfd2bf;
+      --accent: #0f8b6d;
+      --budget: #5d74c1;
+      --danger: #c0392b;
+      --shadow: 0 18px 42px rgba(78, 55, 28, 0.12);
+      --radius: 18px;
+    }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; padding: 0; }
+    body {
+      font-family: "Hiragino Sans", "Yu Gothic", sans-serif;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at top left, rgba(242, 143, 59, 0.18), transparent 28%),
+        radial-gradient(circle at top right, rgba(15, 139, 109, 0.16), transparent 24%),
+        linear-gradient(180deg, #faf5ec 0%, #f3ede2 100%);
+      min-height: 100vh;
+    }
+    .app { width: min(1100px, calc(100vw - 24px)); margin: 0 auto; padding: 18px 0 28px; }
+    .hero {
+      background: linear-gradient(135deg, rgba(15, 139, 109, 0.92), rgba(242, 143, 59, 0.86));
+      color: #fff; border-radius: 24px; padding: 22px 20px; box-shadow: var(--shadow);
+    }
+    .hero-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+    h1 { margin: 0; font-size: 26px; line-height: 1.15; }
+    .hero p { margin: 6px 0 0; color: rgba(255,255,255,.9); font-size: 14px; }
+    .chip {
+      display: inline-flex; align-items: center; border-radius: 999px; padding: 8px 12px;
+      background: rgba(255,255,255,.18); font-size: 12px; white-space: nowrap;
+    }
+    .page-links { margin-top: 14px; display: flex; gap: 8px; flex-wrap: wrap; }
+    .page-link {
+      display: inline-flex; align-items: center; min-height: 34px; padding: 0 12px;
+      border-radius: 999px; border: 1px solid rgba(255,255,255,.25);
+      background: rgba(255,255,255,.14); color: #fff; text-decoration: none;
+      font-size: 13px; font-weight: 700;
+    }
+    .panel {
+      margin-top: 16px; background: var(--panel); border: 1px solid rgba(255,255,255,.7);
+      border-radius: var(--radius); box-shadow: var(--shadow); padding: 16px;
+    }
+    .controls { display: flex; align-items: end; gap: 10px; flex-wrap: wrap; }
+    .field { display: grid; gap: 6px; min-width: 150px; }
+    label { font-size: 12px; font-weight: 700; color: var(--muted); }
+    select, button { min-height: 44px; border-radius: 13px; font: inherit; }
+    select {
+      padding: 0 12px; border: 1px solid var(--line); background: var(--panel-strong);
+      color: var(--ink); min-width: 145px;
+    }
+    button {
+      padding: 0 16px; border: 0; background: var(--accent); color: #fff;
+      font-weight: 700; cursor: pointer;
+    }
+    button:disabled { opacity: .55; cursor: wait; }
+    .summary {
+      margin-top: 14px; border: 1px solid var(--line); border-radius: 14px;
+      background: rgba(255,250,242,.82); padding: 12px 14px; color: var(--muted);
+      font-size: 13px; line-height: 1.6;
+    }
+    .status { display: none; margin-top: 12px; padding: 12px 14px; border-radius: 14px; white-space: pre-wrap; font-size: 14px; }
+    .status.show { display: block; }
+    .status.info { background: #efe7d8; color: #6a4f26; }
+    .status.error { background: #f9e0dd; color: #8d2419; }
+    .charts-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; margin-top: 16px; }
+    .item-card {
+      min-width: 0; background: var(--panel); border: 1px solid var(--line); border-radius: 16px;
+      box-shadow: 0 8px 18px rgba(78,55,28,.06); padding: 14px;
+    }
+    .item-head { display: flex; justify-content: space-between; align-items: start; gap: 8px; }
+    .item-name { font-size: 15px; line-height: 1.35; font-weight: 800; }
+    .item-total { text-align: right; color: var(--muted); font-size: 11px; line-height: 1.5; white-space: nowrap; }
+    .chart-wrap { position: relative; height: 245px; margin-top: 10px; }
+    .empty {
+      grid-column: 1 / -1; border: 1px dashed var(--line); border-radius: 14px;
+      padding: 22px; text-align: center; color: var(--muted); background: rgba(255,255,255,.55);
+    }
+    .footer-note { margin: 14px 4px 0; color: var(--muted); font-size: 12px; line-height: 1.55; }
+    @media (max-width: 700px) {
+      .app { width: calc(100vw - 16px); padding-top: 8px; }
+      .hero { padding: 18px 16px; border-radius: 20px; }
+      .hero-top { flex-direction: column; }
+      h1 { font-size: 23px; }
+      .charts-grid { grid-template-columns: 1fr; gap: 11px; }
+      .chart-wrap { height: 235px; }
+      .item-head { align-items: center; }
+    }
+  </style>
+</head>
+<body>
+  <main class="app">
+    <section class="hero">
+      <div class="hero-top">
+        <div>
+          <h1>項目別年間推移</h1>
+          <p id="heroSub">項目ごとの月別支出と予算を表示します。</p>
+          <nav class="page-links" aria-label="ページ">
+            <a class="page-link" href="index.html">ホーム</a>
+            <a class="page-link" href="analysis.html">月次推移</a>
+            <a class="page-link" href="item-trends.html">項目別推移</a>
+            <a class="page-link" href="qa.html">家計に聞く</a>
+          </nav>
+        </div>
+        <span class="chip" id="loginChip">LINE接続中</span>
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="controls">
+        <div class="field">
+          <label for="yearSelect">対象年</label>
+          <select id="yearSelect"></select>
+        </div>
+        <button id="reloadBtn" type="button">グラフを更新</button>
+      </div>
+      <div id="summary" class="summary">対象年のデータを読み込みます。</div>
+      <div id="statusBox" class="status"></div>
+    </section>
+
+    <section id="chartsGrid" class="charts-grid" aria-live="polite"></section>
+    <p class="footer-note">緑の棒が月ごとの実績、青い線が各月の予算です。予算は各月の家計簿シートから取得します。該当月のシートがない場合、予算は0円として表示されます。</p>
+  </main>
+
+  <script>
+    const LIFF_ID = '2008812269-var864Dv';
+    const API_BASE_URL = 'https://script.google.com/macros/s/AKfycbybumOZE5YTic3zBnF3KW93UlSetzHTEben4_UtwugKMMagqcH9aJYIzsW10kd5hIwe/exec';
+    const state = { accessToken: '', charts: [], loading: false };
+    const $ = (id) => document.getElementById(id);
+
+    function formatCurrency(value) {
+      return Number(value || 0).toLocaleString('ja-JP') + '円';
+    }
+
+    function setStatus(message, type) {
+      const box = $('statusBox');
+      box.textContent = message || '';
+      box.className = message ? 'status show ' + (type || 'info') : 'status';
+    }
+
+    function populateYears() {
+      const select = $('yearSelect');
+      const currentYear = new Date().getFullYear();
+      for (let year = currentYear; year >= currentYear - 7; year--) {
+        const option = document.createElement('option');
+        option.value = String(year);
+        option.textContent = year + '年';
+        select.appendChild(option);
+      }
+      select.value = String(currentYear);
+    }
+
+    async function apiGet(op, params) {
+      const url = new URL(API_BASE_URL);
+      url.searchParams.set('action', 'api');
+      url.searchParams.set('op', op);
+      url.searchParams.set('access_token', state.accessToken);
+      Object.entries(params || {}).forEach(([key, value]) => {
+        if (value !== undefined && value !== null && value !== '') url.searchParams.set(key, value);
+      });
+      const response = await fetch(url.toString(), { method: 'GET' });
+      const data = await response.json();
+      if (!data.ok) throw new Error(data.error || 'APIエラー');
+      return data;
+    }
+
+    function destroyCharts() {
+      state.charts.forEach((chart) => chart.destroy());
+      state.charts = [];
+    }
+
+    function makeCard(item, months) {
+      const card = document.createElement('article');
+      card.className = 'item-card';
+
+      const head = document.createElement('div');
+      head.className = 'item-head';
+      const title = document.createElement('div');
+      title.className = 'item-name';
+      title.textContent = item.label || item.key || '未設定';
+      const total = document.createElement('div');
+      total.className = 'item-total';
+      total.textContent = '実績 ' + formatCurrency(item.total) + ' / 予算 ' + formatCurrency(item.budgetTotal);
+      head.append(title, total);
+
+      const wrap = document.createElement('div');
+      wrap.className = 'chart-wrap';
+      const canvas = document.createElement('canvas');
+      canvas.setAttribute('role', 'img');
+      canvas.setAttribute('aria-label', (item.label || item.key) + 'の月別実績と予算');
+      wrap.appendChild(canvas);
+      card.append(head, wrap);
+
+      const itemMonths = item.months || [];
+      const chart = new Chart(canvas.getContext('2d'), {
+        type: 'bar',
+        data: {
+          labels: months.map((month) => month.label || month.key),
+          datasets: [
+            {
+              type: 'bar',
+              label: '実績',
+              data: itemMonths.map((month) => Number(month.amount || 0)),
+              backgroundColor: '#0f8b6d66',
+              borderColor: '#0f8b6d',
+              borderWidth: 1,
+              borderRadius: 4,
+              maxBarThickness: 24
+            },
+            {
+              type: 'line',
+              label: '予算',
+              data: itemMonths.map((month) => Number(month.budget || 0)),
+              borderColor: '#5d74c1',
+              backgroundColor: '#5d74c122',
+              pointBackgroundColor: '#5d74c1',
+              pointRadius: 2.5,
+              pointHoverRadius: 4,
+              borderWidth: 2,
+              tension: 0.2,
+              fill: false
+            }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          interaction: { mode: 'index', intersect: false },
+          plugins: {
+            legend: { display: true, position: 'bottom', labels: { boxWidth: 12, usePointStyle: true } },
+            tooltip: {
+              callbacks: {
+                label: (context) => context.dataset.label + ': ' + formatCurrency(context.parsed.y || 0)
+              }
+            }
+          },
+          scales: {
+            x: { grid: { display: false }, ticks: { maxRotation: 0, autoSkip: true, maxTicksLimit: 12 } },
+            y: {
+              beginAtZero: true,
+              ticks: { callback: (value) => Number(value || 0).toLocaleString('ja-JP') }
+            }
+          }
+        }
+      });
+      state.charts.push(chart);
+      return card;
+    }
+
+    function renderTrends(data) {
+      destroyCharts();
+      const grid = $('chartsGrid');
+      grid.replaceChildren();
+      const items = data.items || [];
+      if (!items.length) {
+        const empty = document.createElement('div');
+        empty.className = 'empty';
+        empty.textContent = '表示できる項目がありません。';
+        grid.appendChild(empty);
+        return;
+      }
+
+      const monthLabels = data.months || [];
+      items.forEach((item) => grid.appendChild(makeCard(item, monthLabels)));
+      const totalActual = items.reduce((sum, item) => sum + Number(item.total || 0), 0);
+      const totalBudget = items.reduce((sum, item) => sum + Number(item.budgetTotal || 0), 0);
+      $('summary').textContent = data.year + '年 / ' + items.length + '項目 / 年間実績 ' +
+        formatCurrency(totalActual) + ' / 年間予算 ' + formatCurrency(totalBudget);
+    }
+
+    async function loadTrends() {
+      if (state.loading) return;
+      state.loading = true;
+      $('reloadBtn').disabled = true;
+      setStatus('項目別の年間データを読み込んでいます。', 'info');
+      try {
+        const year = $('yearSelect').value;
+        const data = await apiGet('item_trends', { year });
+        renderTrends(data);
+        setStatus('', '');
+      } catch (error) {
+        console.error(error);
+        setStatus(String(error.message || error), 'error');
+      } finally {
+        state.loading = false;
+        $('reloadBtn').disabled = false;
+      }
+    }
+
+    function initLiffWithTimeout(timeoutMs) {
+      return new Promise((resolve, reject) => {
+        let done = false;
+        liff.init({ liffId: LIFF_ID }).then(() => {
+          if (done) return;
+          done = true;
+          resolve();
+        }).catch((error) => {
+          if (done) return;
+          done = true;
+          reject(error);
+        });
+        setTimeout(() => {
+          if (done) return;
+          done = true;
+          reject(new Error('LIFF初期化がタイムアウトしました。'));
+        }, timeoutMs || 10000);
+      });
+    }
+
+    async function boot() {
+      populateYears();
+      await initLiffWithTimeout(10000);
+      $('loginChip').textContent = liff.isInClient() ? 'LINEアプリ内' : 'ブラウザー';
+      if (!liff.isLoggedIn()) {
+        liff.login({ redirectUri: location.href });
+        return;
+      }
+      state.accessToken = liff.getAccessToken();
+      await apiGet('whoami');
+      $('loginChip').textContent = 'LINE認証済み';
+      $('yearSelect').addEventListener('change', loadTrends);
+      $('reloadBtn').addEventListener('click', loadTrends);
+      await loadTrends();
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+      boot().catch((error) => {
+        console.error(error);
+        setStatus(String(error.message || error), 'error');
+      });
+    });
+  </script>
+</body>
+</html>
