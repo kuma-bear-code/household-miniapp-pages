@@ -61,6 +61,16 @@
     .category-change { white-space: nowrap; }
     .category-change.increase { color: var(--danger); }
     .category-change.decrease { color: var(--accent); }
+    .detail-title { margin-top: 18px; font-size: 15px; }
+    .spending-detail-period { margin-top: 9px; border: 1px solid var(--line); border-radius: 14px; background: white; overflow: hidden; }
+    .spending-detail-period summary { padding: 12px 14px; cursor: pointer; font-size: 13px; font-weight: 700; }
+    .transaction-list { display: grid; }
+    .transaction-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 12px; padding: 11px 14px; border-top: 1px solid #eee7db; }
+    .transaction-top { display: flex; flex-wrap: wrap; align-items: center; gap: 7px; color: var(--muted); font-size: 11px; }
+    .transaction-category { padding: 2px 7px; border-radius: 99px; color: #39574c; background: #e9f3ed; }
+    .transaction-content { margin-top: 4px; font-size: 13px; overflow-wrap: anywhere; }
+    .transaction-amount { white-space: nowrap; font-size: 14px; font-variant-numeric: tabular-nums; }
+    .transaction-empty { padding: 12px 14px; border-top: 1px solid #eee7db; color: var(--muted); font-size: 12px; }
     .chart-wrap { min-height: 300px; margin-top: 14px; padding: 12px; border: 1px solid var(--line); border-radius: 16px; background: white; }
     .chart { width: 100%; height: 340px; }
     .empty { display: grid; min-height: 270px; place-items: center; padding: 18px; color: var(--muted); text-align: center; line-height: 1.7; }
@@ -129,6 +139,15 @@
         </div>
         <div class="empty hidden" id="spendingEmptyState">今月と前月の支出記録はありません。</div>
         <div class="category-list" id="spendingCategoryList" aria-live="polite"></div>
+        <h3 class="detail-title">支出明細</h3>
+        <details class="spending-detail-period" open>
+          <summary id="currentDetailSummary">今月の明細</summary>
+          <div class="transaction-list" id="currentExpenseDetails"></div>
+        </details>
+        <details class="spending-detail-period">
+          <summary id="previousDetailSummary">前月の明細</summary>
+          <div class="transaction-list" id="previousExpenseDetails"></div>
+        </details>
         <p class="status" id="spendingStatus" role="status" aria-live="polite"></p>
       </section>
       <h2 style="margin-top:20px">生活資産の推移</h2>
@@ -304,9 +323,9 @@
       const categories = data.categories || [];
       if (!categories.length) {
         empty.classList.remove('hidden');
-        return;
+      } else {
+        empty.classList.add('hidden');
       }
-      empty.classList.add('hidden');
       const maxAmount = Math.max(1, ...categories.map((item) => Number(item.currentAmount || 0)));
       categories.forEach((item) => {
         const row = document.createElement('article');
@@ -338,6 +357,43 @@
         meta.append(previous, change);
 
         row.append(head, meter, meta);
+        list.appendChild(row);
+      });
+      renderExpenseDetails('currentExpenseDetails', 'currentDetailSummary', data.currentMonth, data.currentCount, data.currentDetails);
+      renderExpenseDetails('previousExpenseDetails', 'previousDetailSummary', data.previousMonth, data.previousCount, data.previousDetails);
+    }
+
+    function renderExpenseDetails(containerId, summaryId, monthKey, count, details = []) {
+      $(summaryId).textContent = monthLabel(monthKey) + 'の明細 (' + Number(count || 0) + '件)';
+      const list = $(containerId);
+      list.replaceChildren();
+      if (!details.length) {
+        const empty = document.createElement('div');
+        empty.className = 'transaction-empty';
+        empty.textContent = 'この月の支出記録はありません。';
+        list.appendChild(empty);
+        return;
+      }
+      details.forEach((item) => {
+        const row = document.createElement('div');
+        row.className = 'transaction-row';
+        const main = document.createElement('div');
+        const top = document.createElement('div');
+        top.className = 'transaction-top';
+        const date = document.createElement('span');
+        date.textContent = item.date.replaceAll('-', '/');
+        const category = document.createElement('span');
+        category.className = 'transaction-category';
+        category.textContent = item.category;
+        top.append(date, category);
+        const content = document.createElement('div');
+        content.className = 'transaction-content';
+        content.textContent = item.content;
+        main.append(top, content);
+        const amount = document.createElement('strong');
+        amount.className = 'transaction-amount';
+        amount.textContent = money(item.amount);
+        row.append(main, amount);
         list.appendChild(row);
       });
     }
