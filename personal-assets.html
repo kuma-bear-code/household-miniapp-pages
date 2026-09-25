@@ -71,6 +71,22 @@
     .transaction-content { margin-top: 4px; font-size: 13px; overflow-wrap: anywhere; }
     .transaction-amount { white-space: nowrap; font-size: 14px; font-variant-numeric: tabular-nums; }
     .transaction-empty { padding: 12px 14px; border-top: 1px solid #eee7db; color: var(--muted); font-size: 12px; }
+    .finance-section { margin-top: 20px; padding-top: 18px; border-top: 1px solid var(--line); }
+    .finance-list { display: grid; gap: 8px; margin-top: 12px; }
+    .finance-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 12px; align-items: center; padding: 11px 13px; border: 1px solid var(--line); border-radius: 12px; background: white; }
+    .finance-row-label { font-size: 13px; }
+    .finance-row-note { display: block; margin-top: 3px; color: var(--muted); font-size: 11px; }
+    .finance-row-amount { font-size: 14px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+    .finance-summary { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 9px; margin-top: 12px; }
+    .finance-summary-card { padding: 12px; border: 1px solid var(--line); border-radius: 13px; background: #fffaf2; }
+    .finance-summary-label { display: block; color: var(--muted); font-size: 12px; }
+    .finance-summary-value { display: block; margin-top: 5px; font-size: 20px; font-variant-numeric: tabular-nums; }
+    .search-tools, .trend-tools { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin-top: 12px; }
+    .search-tools input, .search-tools select, .trend-tools select { width: 100%; min-height: 42px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 10px; color: var(--ink); background: white; font: inherit; font-size: 13px; }
+    .category-search { min-height: 34px; margin-top: 9px; padding: 0 11px; color: #24594b; background: #e9f3ed; font-size: 12px; }
+    .search-count { margin: 9px 0 0; color: var(--muted); font-size: 12px; }
+    .load-more { margin-top: 10px; }
+    .company-items summary { padding: 12px 0 0; cursor: pointer; color: #39574c; font-size: 13px; font-weight: 700; }
     .chart-wrap { min-height: 300px; margin-top: 14px; padding: 12px; border: 1px solid var(--line); border-radius: 16px; background: white; }
     .chart { width: 100%; height: 340px; }
     .empty { display: grid; min-height: 270px; place-items: center; padding: 18px; color: var(--muted); text-align: center; line-height: 1.7; }
@@ -84,7 +100,7 @@
     .history { display: grid; gap: 8px; margin-top: 14px; }
     .history-row { display: grid; grid-template-columns: 1fr 1.5fr 1.5fr; gap: 10px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 12px; font-variant-numeric: tabular-nums; }
     .hidden { display: none !important; }
-    @media (max-width: 560px) { .app { width: calc(100vw - 16px); padding-top: 8px; } .hero { padding: 17px; } .chart { height: 390px; } .chart-wrap { min-height: 320px; } .value-grid { grid-template-columns: 1fr; } .spending-totals { gap: 7px; } .spending-total { padding: 11px; } .category-row { padding: 11px; } .history-row { grid-template-columns: 1fr; gap: 3px; } }
+    @media (max-width: 560px) { .app { width: calc(100vw - 16px); padding-top: 8px; } .hero { padding: 17px; } .chart { height: 390px; } .chart-wrap { min-height: 320px; } .value-grid { grid-template-columns: 1fr; } .spending-totals, .finance-summary { gap: 7px; } .spending-total, .finance-summary-card { padding: 11px; } .category-row { padding: 11px; } .search-tools, .trend-tools { grid-template-columns: 1fr; } .history-row { grid-template-columns: 1fr; gap: 3px; } }
   </style>
 </head>
 <body>
@@ -122,6 +138,52 @@
           <p class="sub" id="currentInvestmentDate"></p>
         </div>
       </div>
+      <section class="finance-section" aria-labelledby="livingBreakdownTitle">
+        <h2 id="livingBreakdownTitle">生活資産の内訳</h2>
+        <p class="sub" id="livingBreakdownAsOf">残高照合の最新入力を表示します。</p>
+        <div class="finance-list" id="livingAssetBreakdown"></div>
+        <div class="finance-summary">
+          <div class="finance-summary-card">
+            <span class="finance-summary-label">実質保有残高</span>
+            <strong class="finance-summary-value" id="livingNetAmount">—</strong>
+          </div>
+          <div class="finance-summary-card">
+            <span class="finance-summary-label">帳簿上の自由資金</span>
+            <strong class="finance-summary-value" id="bookFreeAmount">—</strong>
+          </div>
+        </div>
+      </section>
+      <section class="finance-section" aria-labelledby="cardForecastTitle">
+        <h2 id="cardForecastTitle">カード引き落とし予測</h2>
+        <p class="sub">残高照合にある未引落額を、次回引き落としの目安として表示します。カード会社の確定請求額ではありません。</p>
+        <div class="finance-summary">
+          <div class="finance-summary-card">
+            <span class="finance-summary-label">未引落カード合計</span>
+            <strong class="finance-summary-value" id="cardForecastTotal">—</strong>
+          </div>
+        </div>
+        <div class="finance-list" id="cardForecastBreakdown"></div>
+        <p class="sub" id="cardForecastAsOf"></p>
+      </section>
+      <section class="finance-section" aria-labelledby="companySettlementTitle">
+        <h2 id="companySettlementTitle">会社経費の精算</h2>
+        <p class="sub">会社立替管理とMoney Forwardの記録から、未精算額と要確認額を表示します。</p>
+        <div class="finance-summary">
+          <div class="finance-summary-card">
+            <span class="finance-summary-label">確定・未精算</span>
+            <strong class="finance-summary-value" id="companyUnsettledAmount">—</strong>
+          </div>
+          <div class="finance-summary-card">
+            <span class="finance-summary-label">要確認</span>
+            <strong class="finance-summary-value" id="companyNeedsReviewAmount">—</strong>
+          </div>
+        </div>
+        <details class="company-items">
+          <summary id="companyItemsSummary">未精算の明細</summary>
+          <div class="finance-list" id="companyItemsList"></div>
+        </details>
+        <p class="status" id="financeStatus" role="status" aria-live="polite"></p>
+      </section>
       <section class="spending-section" aria-labelledby="spendingTitle">
         <h2 id="spendingTitle">今月・前月に使ったお金</h2>
         <p class="sub">個人家計簿の明細から支出を大分類別に集計しています。</p>
@@ -139,6 +201,28 @@
         </div>
         <div class="empty hidden" id="spendingEmptyState">今月と前月の支出記録はありません。</div>
         <div class="category-list" id="spendingCategoryList" aria-live="polite"></div>
+        <h3 class="detail-title">カテゴリ別の月間推移</h3>
+        <p class="sub">明細が登録された月を表示します。記録のない月は空欄です。</p>
+        <div class="trend-tools">
+          <label class="hidden" for="trendCategorySelect">推移を見るカテゴリ</label>
+          <select id="trendCategorySelect" aria-label="推移を見るカテゴリ"></select>
+        </div>
+        <div class="chart-wrap">
+          <div class="empty" id="categoryTrendEmpty">カテゴリ別の推移を読み込みます。</div>
+          <canvas class="chart hidden" id="categoryTrendChart" aria-label="カテゴリ別の月間支出推移"></canvas>
+        </div>
+        <h3 class="detail-title">カテゴリ・月・内容で明細検索</h3>
+        <div class="search-tools">
+          <label class="hidden" for="expenseCategoryFilter">カテゴリ</label>
+          <select id="expenseCategoryFilter" aria-label="カテゴリ"></select>
+          <label class="hidden" for="expenseMonthFilter">対象月</label>
+          <select id="expenseMonthFilter" aria-label="対象月"></select>
+          <label class="hidden" for="expenseQuery">内容のキーワード</label>
+          <input id="expenseQuery" type="search" placeholder="内容を検索" aria-label="内容を検索" />
+        </div>
+        <p class="search-count" id="expenseSearchCount" role="status" aria-live="polite"></p>
+        <div class="transaction-list" id="expenseSearchResults"></div>
+        <button class="secondary load-more hidden" type="button" id="expenseLoadMore">さらに表示</button>
         <h3 class="detail-title">支出明細</h3>
         <details class="spending-detail-period" open>
           <summary id="currentDetailSummary">今月の明細</summary>
@@ -178,7 +262,7 @@
   <script>
     const LIFF_ID = '2008812269-var864Dv';
     const API_BASE_URL = 'https://script.google.com/macros/s/AKfycbwCRPyhJLCWkw_F-pm177DGUgq2R_sTVPZLzXuotaJZ6B6R53vDBVpuKXUfYb_N6P_2Eg/exec';
-    const state = { accessToken: '', charts: { cash: null, investment: null }, snapshots: [] };
+    const state = { accessToken: '', charts: { cash: null, investment: null, category: null }, snapshots: [], spending: null, expenseSearchLimit: 100 };
     const $ = (id) => document.getElementById(id);
 
     function money(value) {
@@ -357,10 +441,210 @@
         meta.append(previous, change);
 
         row.append(head, meter, meta);
+        const searchButton = document.createElement('button');
+        searchButton.className = 'category-search';
+        searchButton.type = 'button';
+        searchButton.textContent = 'このカテゴリの明細';
+        searchButton.dataset.category = item.category;
+        row.appendChild(searchButton);
         list.appendChild(row);
       });
       renderExpenseDetails('currentExpenseDetails', 'currentDetailSummary', data.currentMonth, data.currentCount, data.currentDetails);
       renderExpenseDetails('previousExpenseDetails', 'previousDetailSummary', data.previousMonth, data.previousCount, data.previousDetails);
+      state.spending = data;
+      populateSpendingControls(data);
+      renderExpenseSearch();
+      renderCategoryTrend();
+    }
+
+    function setSelectOptions(select, options, selectedValue) {
+      select.replaceChildren();
+      options.forEach((option) => {
+        const node = document.createElement('option');
+        node.value = option.value;
+        node.textContent = option.label;
+        select.appendChild(node);
+      });
+      if (options.some((option) => option.value === selectedValue)) select.value = selectedValue;
+    }
+
+    function populateSpendingControls(data) {
+      const previousCategory = $('expenseCategoryFilter').value;
+      const previousMonth = $('expenseMonthFilter').value;
+      const previousTrendCategory = $('trendCategorySelect').value;
+      const categories = data.categoryNames || [];
+      setSelectOptions($('expenseCategoryFilter'), [
+        { value: '', label: 'すべてのカテゴリ' },
+        ...categories.map((category) => ({ value: category, label: category }))
+      ], previousCategory);
+      setSelectOptions($('expenseMonthFilter'), [
+        { value: '', label: 'すべての月' },
+        ...(data.searchMonths || []).map((month) => ({ value: month, label: monthLabel(month) }))
+      ], previousMonth);
+      setSelectOptions($('trendCategorySelect'), [
+        { value: '__total__', label: '全カテゴリ合計' },
+        ...categories.map((category) => ({ value: category, label: category }))
+      ], previousTrendCategory || '__total__');
+    }
+
+    function renderExpenseSearch() {
+      const data = state.spending;
+      if (!data) return;
+      const category = $('expenseCategoryFilter').value;
+      const month = $('expenseMonthFilter').value;
+      const query = $('expenseQuery').value.trim().toLocaleLowerCase('ja-JP');
+      const filtered = (data.allDetails || []).filter((item) =>
+        (!category || item.category === category) &&
+        (!month || item.date.slice(0, 7).replace('-', '') === month) &&
+        (!query || (item.content + ' ' + item.category).toLocaleLowerCase('ja-JP').includes(query))
+      );
+      const results = $('expenseSearchResults');
+      results.replaceChildren();
+      const visible = filtered.slice(0, state.expenseSearchLimit);
+      visible.forEach((item) => results.appendChild(createExpenseRow(item)));
+      if (!visible.length) {
+        const empty = document.createElement('div');
+        empty.className = 'transaction-empty';
+        empty.textContent = '条件に一致する明細はありません。';
+        results.appendChild(empty);
+      }
+      $('expenseSearchCount').textContent = filtered.length + '件中 ' + visible.length + '件を表示';
+      $('expenseLoadMore').classList.toggle('hidden', filtered.length <= visible.length);
+    }
+
+    function renderCategoryTrend() {
+      const data = state.spending;
+      if (!data) return;
+      const canvas = $('categoryTrendChart');
+      const empty = $('categoryTrendEmpty');
+      if (state.charts.category) {
+        state.charts.category.destroy();
+        state.charts.category = null;
+      }
+      const trend = data.categoryTrend || {};
+      const months = trend.months || [];
+      const selected = $('trendCategorySelect').value || '__total__';
+      const selectedTrend = selected === '__total__'
+        ? { category: '全カテゴリ合計', values: trend.total || [] }
+        : (trend.categories || []).find((item) => item.category === selected);
+      if (!selectedTrend || !selectedTrend.values.some((value) => value != null)) {
+        canvas.classList.add('hidden');
+        empty.classList.remove('hidden');
+        empty.textContent = 'このカテゴリの支出記録はありません。';
+        return;
+      }
+      canvas.classList.remove('hidden');
+      empty.classList.add('hidden');
+      const color = selected === '__total__' ? '#0f8b6d' : '#5d74c1';
+      state.charts.category = new Chart(canvas.getContext('2d'), {
+        type: 'line',
+        data: {
+          labels: months.map(monthLabel),
+          datasets: [{
+            label: selectedTrend.category,
+            data: selectedTrend.values,
+            borderColor: color,
+            backgroundColor: color + '22',
+            pointBackgroundColor: color,
+            pointRadius: 5,
+            borderWidth: 3,
+            tension: .2,
+            spanGaps: false,
+            fill: false
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          interaction: { mode: 'index', intersect: false },
+          plugins: {
+            legend: { display: true, position: 'bottom' },
+            tooltip: { callbacks: { label: (context) => selectedTrend.category + ': ' + money(context.parsed.y) } }
+          },
+          scales: {
+            y: { beginAtZero: true, ticks: { callback: (value) => money(value) } }
+          }
+        }
+      });
+    }
+
+    function createExpenseRow(item) {
+      const row = document.createElement('div');
+      row.className = 'transaction-row';
+      const main = document.createElement('div');
+      const top = document.createElement('div');
+      top.className = 'transaction-top';
+      const date = document.createElement('span');
+      date.textContent = item.date.replaceAll('-', '/');
+      const category = document.createElement('span');
+      category.className = 'transaction-category';
+      category.textContent = item.category;
+      top.append(date, category);
+      const content = document.createElement('div');
+      content.className = 'transaction-content';
+      content.textContent = item.content;
+      main.append(top, content);
+      const amount = document.createElement('strong');
+      amount.className = 'transaction-amount';
+      amount.textContent = money(item.amount);
+      row.append(main, amount);
+      return row;
+    }
+
+    function renderFinanceOverview(data) {
+      const living = data.livingAssets || {};
+      $('livingBreakdownAsOf').textContent = living.asOfDate ? living.asOfDate.replaceAll('-', '/') + ' 時点の残高照合' : '残高照合の最新入力';
+      $('livingNetAmount').textContent = money(living.netAmount);
+      $('bookFreeAmount').textContent = living.bookFreeAmount == null ? '未入力' : money(living.bookFreeAmount);
+      const breakdown = $('livingAssetBreakdown');
+      breakdown.replaceChildren();
+      (living.cashAccounts || []).forEach((item) => breakdown.appendChild(createFinanceRow(item.label, item.amount, '預金・現金')));
+      (living.cardBalances || []).forEach((item) => breakdown.appendChild(createFinanceRow(item.label, item.amount, '未引落カード残高')));
+      if (living.sharedSettlementAmount != null) {
+        breakdown.appendChild(createFinanceRow('共有家計未精算', signedMoney(living.sharedSettlementAmount), '＋は受取、−は支払'));
+      }
+      if (!breakdown.children.length) breakdown.appendChild(createFinanceRow('内訳', '未入力', '残高照合に入力すると表示されます'));
+
+      const forecast = data.cardForecast || {};
+      $('cardForecastTotal').textContent = money(forecast.amount);
+      $('cardForecastAsOf').textContent = forecast.asOfDate ? forecast.asOfDate.replaceAll('-', '/') + ' 時点' : '';
+      const cardRows = $('cardForecastBreakdown');
+      cardRows.replaceChildren();
+      (forecast.items || []).forEach((item) => cardRows.appendChild(createFinanceRow(item.label, item.amount, '次回引き落としの目安')));
+
+      const company = data.companySettlement || {};
+      $('companyUnsettledAmount').textContent = company.confirmedUnsettledAmount == null ? '未入力' : money(company.confirmedUnsettledAmount);
+      $('companyNeedsReviewAmount').textContent = company.needsReviewAmount == null ? '未入力' : money(company.needsReviewAmount);
+      const items = company.items || [];
+      $('companyItemsSummary').textContent = '未精算・確認中の明細 (' + items.length + '件)';
+      const companyList = $('companyItemsList');
+      companyList.replaceChildren();
+      items.forEach((item) => {
+        const note = [item.date ? item.date.replaceAll('-', '/') : '', item.card, item.status, item.review ? '要確認' : '', item.dueDate ? '請求 ' + item.dueDate.replaceAll('-', '/') : '', item.source].filter(Boolean).join(' · ');
+        companyList.appendChild(createFinanceRow(item.content || '内容未登録', item.amount, note));
+      });
+      if (!items.length) companyList.appendChild(createFinanceRow('未精算の明細', 'ありません', ''));
+    }
+
+    function createFinanceRow(labelText, amountText, noteText) {
+      const row = document.createElement('div');
+      row.className = 'finance-row';
+      const main = document.createElement('div');
+      const label = document.createElement('strong');
+      label.className = 'finance-row-label';
+      label.textContent = labelText;
+      main.appendChild(label);
+      if (noteText) {
+        const note = document.createElement('span');
+        note.className = 'finance-row-note';
+        note.textContent = noteText;
+        main.appendChild(note);
+      }
+      const amount = document.createElement('strong');
+      amount.className = 'finance-row-amount';
+      amount.textContent = typeof amountText === 'number' ? money(amountText) : amountText;
+      row.append(main, amount);
+      return row;
     }
 
     function renderExpenseDetails(containerId, summaryId, monthKey, count, details = []) {
@@ -414,6 +698,13 @@
       } catch (error) {
         $('spendingStatus').textContent = '支出内訳を読み込めませんでした。更新して再度お試しください。';
       }
+      try {
+        const finance = await apiGet('private_finance_overview');
+        renderFinanceOverview(finance);
+        $('financeStatus').textContent = '';
+      } catch (error) {
+        $('financeStatus').textContent = '資産・精算情報を読み込めませんでした。更新して再度お試しください。';
+      }
       const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Tokyo', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
       const recordedToday = state.snapshots.some((row) => row.date === today && row.cashAmount != null);
       $('recordBtn').disabled = recordedToday;
@@ -457,6 +748,20 @@
         $('assetsPanel').classList.remove('hidden');
         $('recordBtn').addEventListener('click', recordSnapshot);
         $('reloadBtn').addEventListener('click', () => loadTrend().catch((error) => setStatus(String(error.message || error), true)));
+        $('expenseCategoryFilter').addEventListener('change', () => { state.expenseSearchLimit = 100; renderExpenseSearch(); });
+        $('expenseMonthFilter').addEventListener('change', () => { state.expenseSearchLimit = 100; renderExpenseSearch(); });
+        $('expenseQuery').addEventListener('input', () => { state.expenseSearchLimit = 100; renderExpenseSearch(); });
+        $('expenseLoadMore').addEventListener('click', () => { state.expenseSearchLimit += 100; renderExpenseSearch(); });
+        $('trendCategorySelect').addEventListener('change', renderCategoryTrend);
+        $('spendingCategoryList').addEventListener('click', (event) => {
+          const button = event.target.closest('.category-search');
+          if (!button) return;
+          $('expenseCategoryFilter').value = button.dataset.category;
+          $('expenseMonthFilter').value = '';
+          state.expenseSearchLimit = 100;
+          renderExpenseSearch();
+          $('expenseSearchResults').scrollIntoView({ behavior: 'smooth', block: 'start' });
+        });
         await loadTrend();
       } catch (error) {
         $('assetsPanel').classList.add('hidden');
@@ -469,3 +774,4 @@
   </script>
 </body>
 </html>
+
